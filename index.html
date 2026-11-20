@@ -38,7 +38,7 @@
   <title>Checklist de Buffet</title>
   <meta name="claude:viewport-fit-sides" content="cover">
   <style>
-    /* Layout: réplica da folha A4 paisagem do PDF, com modo de edição dos itens e base de itens cadastrados */
+    /* Layout adaptado para folha A4 em modo retrato ou paisagem */
     :root {
       --bg: #ffffff;
       --fg: #243746;
@@ -248,6 +248,14 @@
       min-width: 760px;
       border-collapse: collapse;
       background: var(--cell)
+    }
+
+    .print-sheet-head {
+      display: none
+    }
+
+    .print-sheets {
+      display: none
     }
 
     th {
@@ -504,7 +512,7 @@
 
     @media print {
       @page {
-        size: A4 landscape;
+        size: A4 portrait;
         margin: 12mm
       }
 
@@ -526,6 +534,107 @@
       body {
         padding: 0;
         font-size: 11px
+      }
+
+      .page {
+        display: none
+      }
+
+      .print-sheets {
+        display: block
+      }
+
+      .print-sheet {
+        width: 100%;
+        break-after: page;
+        page-break-after: always
+      }
+
+      .print-sheet:last-child {
+        break-after: auto;
+        page-break-after: auto
+      }
+
+      .print-sheet h1 {
+        margin: 0;
+        font-size: 20px
+      }
+
+      .print-sheet .meta {
+        margin-top: 8px
+      }
+
+      .print-sheet .scroll {
+        margin: 6px 0 0;
+        overflow: visible
+      }
+
+      .print-sheet table {
+        width: 100%;
+        min-width: 0;
+        table-layout: fixed
+      }
+
+      .print-sheet td {
+        height: 22px;
+        padding: 0 3px;
+        font-size: 9.5px
+      }
+
+      .print-sheet.landscape td {
+        height: 18px;
+        padding: 0 2px;
+        font-size: 8.5px
+      }
+
+      .print-sheet.landscape th {
+        padding: 4px 2px;
+        font-size: 8px
+      }
+
+      .print-sheet th {
+        padding: 6px 3px;
+        font-size: 9px
+      }
+
+      .print-sheet .line {
+        margin-top: 8px
+      }
+
+      .page > h1,
+      .page > .sub,
+      .page > .meta {
+        display: none
+      }
+
+      thead {
+        display: table-header-group
+      }
+
+      .print-sheet-head {
+        display: table-row
+      }
+
+      .print-sheet-head td {
+        border: 0;
+        background: #fff !important
+      }
+
+      .print-sheet-head.title td {
+        height: 24px;
+        text-align: center;
+        color: var(--fg);
+        font-size: 20px;
+        font-weight: 700;
+        text-transform: uppercase
+      }
+
+      .print-sheet-head.info td {
+        height: 30px;
+        padding: 5px;
+        border: 1px solid var(--line);
+        background: var(--meta) !important;
+        font-size: 10px
       }
 
       .noprint,
@@ -671,8 +780,8 @@
     <div class="tools noprint">
       <span class="seglabel">Folha:</span>
       <span class="seg" role="group" aria-label="Orientação da folha"><button type="button" data-o="landscape"
-          aria-pressed="true">Horizontal</button><button type="button" data-o="portrait"
-          aria-pressed="false">Retrato</button></span>
+          aria-pressed="false">Horizontal</button><button type="button" data-o="portrait"
+          aria-pressed="true">Retrato</button></span>
       <button type="button" id="editBtn" aria-pressed="false">Editar itens</button>
       <span id="editTools" hidden style="display:contents">
         <button type="button" id="addBlank">+ Item em branco</button>
@@ -685,6 +794,14 @@
     <div class="scroll">
       <table id="tbl">
         <thead>
+          <tr class="print-sheet-head title">
+            <td colspan="8">Checklist de Buffet</td>
+          </tr>
+          <tr class="print-sheet-head info">
+            <td colspan="3">Evento: <span id="print-evento"></span></td>
+            <td colspan="2">Data: <span id="print-data"></span></td>
+            <td colspan="3">Responsável: <span id="print-resp"></span></td>
+          </tr>
           <tr>
             <th class="w1">Código</th>
             <th class="w2">Categoria</th>
@@ -750,6 +867,8 @@
     </div>
   </div>
 
+  <div id="printSheets" class="print-sheets"></div>
+
   <script>
     const SEED = [
       ["COP-01", "Copos", "Copo Água"], ["COP-02", "Copos", "Taça Vinho"], ["COP-03", "Copos", "Copo Whisky"],
@@ -766,14 +885,17 @@
     try { S = JSON.parse(localStorage.getItem(KEY) || "{}") || {} } catch (e) { S = {} }
     if (!Array.isArray(S.base)) S.base = SEED.map(([code, cat, desc]) => ({ code, cat, desc }));
     if (!Array.isArray(S.rows)) S.rows = S.base.map(b => ({ id: uid(), ...b }));
+    if (S.orient !== 'landscape' && S.orient !== 'portrait') S.orient = 'portrait';
     let editing = false;
     function applyOrient() {
       const o = S.orient === 'portrait' ? 'portrait' : 'landscape';
       document.querySelector('.page').dataset.o = o;
+      $("printSheets").dataset.o = o;
       document.querySelectorAll('.seg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.o === o));
       let st = document.getElementById('pagestyle');
       if (!st) { st = document.createElement('style'); st.id = 'pagestyle'; document.head.appendChild(st) }
-      st.textContent = '@media print{@page{size:A4 ' + o + ';margin:' + (o === 'portrait' ? '6mm' : '10mm') + '}}';
+      st.textContent = '@media print{@page{size:A4 ' + o + ';margin:12mm}}';
+      renderPrintSheets();
     }
     document.addEventListener('click', e => { const b = e.target.closest('.seg button'); if (!b) return; S.orient = b.dataset.o; save(); applyOrient() });
     const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)) } catch (e) { } };
@@ -819,12 +941,78 @@
         if (tru) { const el = tru.querySelector("[data-l]"); el.textContent = l == null ? "" : l; el.classList.toggle("has", l > 0); tru.classList.toggle("done", !!r.k) }
       });
       $("ts").textContent = ts; $("tr").textContent = tr; $("tl").textContent = tl; $("tc").textContent = ck + "/" + S.rows.length;
+      renderPrintSheets();
     }
     function renderBase() {
       $("baseBody").innerHTML = S.base.map((b, i) => `<tr>${["code", "cat", "desc"].map(f => `<td class="e"><input type="text" value="${esc(b[f])}" data-bi="${i}" data-f="${f}" aria-label="${f}"></td>`).join("")}
 <td style="text-align:center;white-space:nowrap"><button type="button" class="sm" data-act="addrow" data-bi="${i}">Adicionar ao checklist</button> <button type="button" class="sm danger" data-act="delbase" data-bi="${i}" title="Remover da base">×</button></td></tr>`).join("");
     }
-    function loadMeta() { document.querySelectorAll("[data-k]").forEach(i => i.value = S[i.dataset.k] || "") }
+    function loadMeta() {
+      document.querySelectorAll("[data-k]").forEach(i => i.value = S[i.dataset.k] || "");
+      syncPrintMeta();
+    }
+    function syncPrintMeta() {
+      ["evento", "data", "resp"].forEach(k => {
+        const el = $("print-" + k);
+        if (el) el.textContent = S[k] || "";
+      });
+      renderPrintSheets();
+    }
+
+    function renderPrintSheets() {
+      if (!$("printSheets")) return;
+      const rowsPerSheet = S.orient === 'portrait' ? 18 : 24;
+      const chunks = [];
+      for (let i = 0; i < S.rows.length; i += rowsPerSheet) {
+        chunks.push(S.rows.slice(i, i + rowsPerSheet));
+      }
+      if (!chunks.length) chunks.push([]);
+
+      $("printSheets").innerHTML = chunks.map((rows, pageIndex) => {
+        let ts = 0, tr = 0, tl = 0, ck = 0;
+        const body = rows.map(r => {
+          const s = num(r.s), x = num(r.r);
+          const l = s != null && x != null ? Math.max(0, s - x) : null;
+          ts += s || 0; tr += x || 0; tl += l || 0; if (r.k) ck++;
+          return `<tr>
+            <td>${esc(r.code)}</td><td>${esc(r.cat)}</td><td>${esc(r.desc)}</td>
+            <td style="text-align:center">${r.s == null ? "" : esc(r.s)}</td>
+            <td style="text-align:center">${r.r == null ? "" : esc(r.r)}</td>
+            <td style="text-align:center">${l == null ? "" : l}</td>
+            <td style="text-align:center">${r.k ? "&#9745;" : "&#9633;"}</td>
+          </tr>`;
+        }).join("");
+
+        return `<section class="print-sheet ${S.orient}">
+          <h1>Checklist de Buffet</h1>
+          <p class="sub">Controle de materiais — Saída, retorno e conferência — Folha ${pageIndex + 1}/${chunks.length}</p>
+          <div class="meta">
+            <label>Evento: ${esc(S.evento || "")}</label>
+            <label>Data: ${esc(S.data || "")}</label>
+            <label>Responsável: ${esc(S.resp || "")}</label>
+          </div>
+          <div class="scroll">
+            <table>
+              <thead><tr>
+                <th>Código</th><th>Categoria</th><th>Descrição do item</th>
+                <th>Qtd. saída</th><th>Qtd. retorno</th><th>Perdas</th><th>Conferido</th>
+              </tr></thead>
+              <tbody>${body}</tbody>
+              <tfoot><tr>
+                <td colspan="3">Total desta folha</td><td style="text-align:center">${ts}</td>
+                <td style="text-align:center">${tr}</td><td style="text-align:center">${tl}</td>
+                <td style="text-align:center">${ck}/${rows.length}</td>
+              </tr></tfoot>
+            </table>
+          </div>
+          <div class="line"><span>Observações:</span><span style="flex:1;border-bottom:1px solid var(--fg);min-height:22px">${esc(S.obs || "")}</span></div>
+          <div class="sigs">
+            <div class="line"><span>Assinatura do responsável:</span><span style="flex:1;border-bottom:1px solid var(--fg);min-height:22px">${esc(S.as1 || "")}</span></div>
+            <div class="line"><span>Assinatura do contratante:</span><span style="flex:1;border-bottom:1px solid var(--fg);min-height:22px">${esc(S.as2 || "")}</span></div>
+          </div>
+        </section>`;
+      }).join("");
+    }
 
     document.addEventListener("input", e => {
       const t = e.target;
@@ -832,7 +1020,7 @@
       else if (t.dataset.id) { const r = row(t.dataset.id); if (!r) return; r[t.dataset.f] = t.type === "checkbox" ? t.checked : t.value }
       else if (t.dataset.bi != null) { S.base[+t.dataset.bi][t.dataset.f] = t.value; refreshItemSuggestions() }
       else return;
-      save(); calc();
+      save(); syncPrintMeta(); calc();
     });
     document.addEventListener("change", e => {
       const t = e.target;
