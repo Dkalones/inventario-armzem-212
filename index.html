@@ -290,6 +290,10 @@
       width: 13%
     }
 
+    th.wStock {
+      width: 12%
+    }
+
     th.w4,
     th.w5 {
       width: 11%
@@ -314,6 +318,20 @@
       padding: 0 4px;
       font-size: 12px;
       font-variant-numeric: tabular-nums
+    }
+
+    td.availability-cell .stock-status {
+      display: block;
+      padding: 0 2px;
+      color: var(--ok);
+      font-size: 9px;
+      line-height: 1.1;
+      text-align: center
+    }
+
+    td.availability-cell .stock-status.unavailable {
+      color: var(--loss);
+      font-weight: 700
     }
 
     td.p {
@@ -810,17 +828,18 @@
       <table id="tbl">
         <thead>
           <tr class="print-sheet-head title">
-            <td colspan="8">Checklist de Buffet</td>
+            <td colspan="9">Checklist de Buffet</td>
           </tr>
           <tr class="print-sheet-head info">
             <td colspan="3">Evento: <span id="print-evento"></span></td>
             <td colspan="2">Data: <span id="print-data"></span></td>
-            <td colspan="3">Responsável: <span id="print-resp"></span></td>
+            <td colspan="4">Responsável: <span id="print-resp"></span></td>
           </tr>
           <tr>
             <th class="w1">Código</th>
             <th class="w2">Categoria</th>
             <th>Descrição do item</th>
+            <th class="wStock">Disponibilidade</th>
             <th class="w4">Qtd. saída</th>
             <th class="w5">Qtd. retorno</th>
             <th class="w6">Perdas</th>
@@ -832,6 +851,7 @@
         <tfoot>
           <tr>
             <td colspan="3">Total</td>
+            <td></td>
             <td id="ts">0</td>
             <td id="tr">0</td>
             <td id="tl">0</td>
@@ -841,9 +861,8 @@
         </tfoot>
       </table>
     </div>
-    <datalist id="itemDescriptions"></datalist>
     <datalist id="itemCategories"></datalist>
-    <datalist id="itemCodes"></datalist>
+    <div id="itemRowLists" hidden></div>
 
     <div class="line"><span>Observações:</span><textarea id="obs" data-k="obs" rows="1"
         aria-label="Observações"></textarea></div>
@@ -857,8 +876,8 @@
     <details class="base noprint" id="baseBox">
       <summary>Base de itens cadastrados</summary>
       <div class="in">
-        <p class="hint">Itens que você usa com frequência. Adicione ao checklist de cada evento e altere o checklist sem
-          mexer na base.</p>
+        <p class="hint">Cadastre aqui o estoque disponível. Ao adicionar o item ao checklist, a quantidade de saída será
+          comparada com o estoque.</p>
         <div class="scroll" style="margin:0">
           <table id="baseTbl">
             <thead>
@@ -866,6 +885,7 @@
                 <th class="w1">Código</th>
                 <th class="w2">Categoria</th>
                 <th>Descrição</th>
+                <th class="wStock">Estoque</th>
                 <th style="width:210px">Ações</th>
               </tr>
             </thead>
@@ -899,8 +919,9 @@
     let S = {};
     try { S = JSON.parse(localStorage.getItem(KEY) || "{}") || {} } catch (e) { S = {} }
     if (!Array.isArray(S.base)) S.base = SEED.map(([code, cat, desc]) => ({ code, cat, desc }));
+    S.base.forEach(item => { if (item.stock == null) item.stock = ""; });
     S.rows = Array.from({ length: 5 }, () => ({
-      id: uid(), code: "", cat: "", desc: "", s: "", r: "", l: "",
+      id: uid(), code: "", cat: "", desc: "", stock: "", s: "", r: "", l: "",
       k: false, yes: false, no: false
     }));
     if (S.orient !== 'landscape' && S.orient !== 'portrait') S.orient = 'portrait';
@@ -929,6 +950,13 @@
     document.addEventListener('click', e => { const b = e.target.closest('.seg button'); if (!b) return; pushUndo(); S.orient = b.dataset.o; save(); applyOrient() });
     const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)) } catch (e) { } };
     const num = v => v === "" || v == null ? null : Number(v);
+    const stockStatus = r => {
+      const available = num(r.stock);
+      const needed = num(r.s);
+      if (available == null) return "";
+      if (needed == null) return "Informe saída";
+      return available < needed ? `Faltam ${needed - available}` : "Disponível";
+    };
     const row = id => S.rows.find(r => r.id === id);
     const undoStack = [];
     const redoStack = [];
@@ -977,34 +1005,44 @@
     });
 
     function refreshItemSuggestions() {
-      const descriptions = new Map();
       const categories = new Map();
-      const codes = new Map();
       S.base.forEach(item => {
-        if (item.desc?.trim()) descriptions.set(item.desc.trim().toLowerCase(), item.desc.trim());
         if (item.cat?.trim()) categories.set(item.cat.trim().toLowerCase(), item.cat.trim());
-        if (item.code?.trim()) codes.set(item.code.trim().toLowerCase(), item.code.trim());
       });
-      $("itemDescriptions").innerHTML = [...descriptions.values()].map(v => `<option value="${esc(v)}"></option>`).join("");
       $("itemCategories").innerHTML = [...categories.values()].map(v => `<option value="${esc(v)}"></option>`).join("");
-      $("itemCodes").innerHTML = [...codes.values()].map(v => `<option value="${esc(v)}"></option>`).join("");
+      $("itemRowLists").innerHTML = S.rows.map(r => {
+        const category = r.cat?.trim().toLowerCase();
+        const items = category
+          ? S.base.filter(item => item.cat?.trim().toLowerCase() === category)
+          : S.base;
+        const options = field => {
+          const values = new Map();
+          items.forEach(item => {
+            if (item[field]?.trim()) values.set(item[field].trim().toLowerCase(), item[field].trim());
+          });
+          return [...values.values()].map(value => `<option value="${esc(value)}"></option>`).join("");
+        };
+        return `<datalist id="itemCodes-${r.id}">${options("code")}</datalist>
+          <datalist id="itemDescriptions-${r.id}">${options("desc")}</datalist>`;
+      }).join("");
     }
 
     function renderRows() {
       $("tbl").classList.toggle("editing", editing);
       $("body").innerHTML = S.rows.map((r, i) => {
-        const lists = { code: "itemCodes", cat: "itemCategories", desc: "itemDescriptions" };
-        const t = f => editing ? `<td class="e"><input type="text" value="${esc(r[f])}" data-id="${r.id}" data-f="${f}" aria-label="${f}"${lists[f] ? ` list="${lists[f]}"` : ""}></td>` : `<td>${esc(r[f])}</td>`;
+        const lists = { code: `itemCodes-${r.id}`, cat: "itemCategories", desc: `itemDescriptions-${r.id}` };
+        const t = f => `<td class="e"><input type="text" value="${esc(r[f])}" data-id="${r.id}" data-f="${f}" aria-label="${f}" list="${lists[f]}"></td>`;
         const s = num(r.s), x = num(r.r);
         const calculatedLoss = s != null && x != null ? Math.max(0, s - x) : "";
         const lossValue = r.l !== "" && r.l != null ? r.l : calculatedLoss;
         return `<tr data-id="${r.id}">${t("code")}${t("cat")}${t("desc")}
+<td class="availability-cell"><span class="stock-status" data-stock-status></span></td>
 <td class="n"><input type="number" min="0" inputmode="numeric" value="${esc(r.s)}" data-id="${r.id}" data-f="s" aria-label="Qtd. saída"></td>
 <td class="n"><input type="number" min="0" inputmode="numeric" value="${esc(r.r)}" data-id="${r.id}" data-f="r" aria-label="Qtd. retorno"></td>
 <td class="n"><input type="number" min="0" inputmode="numeric" value="${esc(lossValue)}" data-id="${r.id}" data-f="l" aria-label="Perdas"></td>
 <td class="c"><span class="conference-options"><label>Sim <input type="checkbox" ${r.yes ? "checked" : ""} data-id="${r.id}" data-f="yes" aria-label="Conferido sim"></label><label>Não <input type="checkbox" ${r.no ? "checked" : ""} data-id="${r.id}" data-f="no" aria-label="Conferido não"></label><button type="button" class="sm danger" data-act="del" data-id="${r.id}" title="Apagar item do checklist">×</button></span></td>
 <td class="act"><button type="button" class="sm" data-act="up" data-id="${r.id}" title="Subir" ${i === 0 ? "disabled" : ""}>↑</button> <button type="button" class="sm" data-act="down" data-id="${r.id}" title="Descer" ${i === S.rows.length - 1 ? "disabled" : ""}>↓</button> <button type="button" class="sm" data-act="tobase" data-id="${r.id}" title="Salvar na base">Base</button> <button type="button" class="sm danger" data-act="del" data-id="${r.id}" title="Remover do checklist">×</button></td></tr>`;
-      }).join("") || `<tr><td colspan="8" style="height:60px;text-align:center">Nenhum item. Use "Editar itens" para adicionar da base ou criar um item em branco.</td></tr>`;
+      }).join("") || `<tr><td colspan="9" style="height:60px;text-align:center">Nenhum item. Use "Editar itens" para adicionar da base ou criar um item em branco.</td></tr>`;
       refreshItemSuggestions();
       calc();
     }
@@ -1016,13 +1054,22 @@
         const l = r.l !== "" && r.l != null ? num(r.l) : calculated;
         ts += s || 0; tr += x || 0; tl += l || 0; if (r.yes || r.no) ck++;
         const tru = document.querySelector(`tr[data-id="${r.id}"]`);
-        if (tru) { tru.classList.toggle("done", !!(r.yes || r.no)); if (l > 0) tru.classList.add("has-loss"); else tru.classList.remove("has-loss") }
+        if (tru) {
+          tru.classList.toggle("done", !!(r.yes || r.no));
+          if (l > 0) tru.classList.add("has-loss"); else tru.classList.remove("has-loss");
+          const status = tru.querySelector("[data-stock-status]");
+          if (status) {
+            status.textContent = stockStatus(r);
+            status.classList.toggle("unavailable", status.textContent.startsWith("Faltam "));
+          }
+        }
       });
       $("ts").textContent = ts; $("tr").textContent = tr; $("tl").textContent = tl; $("tc").textContent = ck + "/" + S.rows.length;
       renderPrintSheets();
     }
     function renderBase() {
       $("baseBody").innerHTML = S.base.map((b, i) => `<tr>${["code", "cat", "desc"].map(f => `<td class="e"><input type="text" value="${esc(b[f])}" data-bi="${i}" data-f="${f}" aria-label="${f}"></td>`).join("")}
+<td class="n"><input type="number" min="0" inputmode="numeric" value="${esc(b.stock)}" data-bi="${i}" data-f="stock" aria-label="Estoque"></td>
 <td style="text-align:center;white-space:nowrap"><button type="button" class="sm" data-act="addrow" data-bi="${i}">Adicionar ao checklist</button> <button type="button" class="sm danger" data-act="delbase" data-bi="${i}" title="Remover da base">×</button></td></tr>`).join("");
     }
     function loadMeta() {
@@ -1052,9 +1099,11 @@
           const s = num(r.s), x = num(r.r);
           const calculated = s != null && x != null ? Math.max(0, s - x) : null;
           const l = r.l !== "" && r.l != null ? num(r.l) : calculated;
+          const available = num(r.stock);
           ts += s || 0; tr += x || 0; tl += l || 0; if (r.yes || r.no) ck++;
           return `<tr>
             <td>${esc(r.code)}</td><td>${esc(r.cat)}</td><td>${esc(r.desc)}</td>
+            <td style="text-align:center">${available == null ? "" : esc(stockStatus(r))}</td>
             <td style="text-align:center">${r.s == null ? "" : esc(r.s)}</td>
             <td style="text-align:center">${r.r == null ? "" : esc(r.r)}</td>
             <td style="text-align:center">${l == null ? "" : l}</td>
@@ -1073,12 +1122,13 @@
           <div class="scroll">
             <table>
               <thead><tr>
-                <th>Código</th><th>Categoria</th><th>Descrição do item</th>
+                <th>Código</th><th>Categoria</th><th>Descrição do item</th><th>Disponibilidade</th>
                 <th>Qtd. saída</th><th>Qtd. retorno</th><th>Perdas</th><th>Conferido</th>
               </tr></thead>
               <tbody>${body}</tbody>
               <tfoot><tr>
                 <td colspan="3">Total desta folha</td><td style="text-align:center"></td>
+                <td style="text-align:center"></td>
                 <td style="text-align:center"></td><td style="text-align:center"></td>
                 <td style="text-align:center"></td>
               </tr></tfoot>
@@ -1105,6 +1155,7 @@
       }
       else if (t.dataset.bi != null) { S.base[+t.dataset.bi][t.dataset.f] = t.value; refreshItemSuggestions() }
       else return;
+      if (t.dataset.id && ["code", "cat", "desc"].includes(t.dataset.f)) refreshItemSuggestions();
       if (t.dataset.id && (t.dataset.f === "yes" || t.dataset.f === "no")) renderRows();
       save(); syncPrintMeta(); calc();
     });
@@ -1126,6 +1177,7 @@
       r.code = match.code;
       r.cat = match.cat;
       r.desc = match.desc;
+      r.stock = match.stock ?? "";
       save();
       renderRows();
     });
@@ -1137,9 +1189,9 @@
       else if (a === "up" || a === "down") { const i = S.rows.findIndex(r => r.id === id), j = a === "up" ? i - 1 : i + 1; if (j < 0 || j >= S.rows.length) return;[S.rows[i], S.rows[j]] = [S.rows[j], S.rows[i]] }
       else if (a === "tobase") {
         const r = row(id); const k = S.base.findIndex(x => x.code.trim().toLowerCase() === r.code.trim().toLowerCase() && r.code.trim());
-        const item = { code: r.code, cat: r.cat, desc: r.desc }; if (k >= 0) S.base[k] = item; else S.base.push(item); renderBase(); b.textContent = "Salvo"; setTimeout(() => { b.textContent = "Base" }, 1200); save(); return
+        const item = { code: r.code, cat: r.cat, desc: r.desc, stock: r.stock ?? "" }; if (k >= 0) S.base[k] = item; else S.base.push(item); renderBase(); b.textContent = "Salvo"; setTimeout(() => { b.textContent = "Base" }, 1200); save(); return
       }
-      else if (a === "addrow") { const x = S.base[+b.dataset.bi]; S.rows.push({ id: uid(), code: x.code, cat: x.cat, desc: x.desc }); b.textContent = "Adicionado"; setTimeout(() => { b.textContent = "Adicionar ao checklist" }, 1200) }
+      else if (a === "addrow") { const x = S.base[+b.dataset.bi]; S.rows.push({ id: uid(), code: x.code, cat: x.cat, desc: x.desc, stock: x.stock ?? "" }); b.textContent = "Adicionado"; setTimeout(() => { b.textContent = "Adicionar ao checklist" }, 1200) }
       else if (a === "delbase") { S.base.splice(+b.dataset.bi, 1); renderBase(); save(); return }
       save(); renderRows();
     });
