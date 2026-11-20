@@ -338,6 +338,25 @@
       vertical-align: middle
     }
 
+    td.c .conference-options {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      white-space: nowrap
+    }
+
+    td.c .conference-options label {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      font-size: 10px
+    }
+
+    td.c .conference-options button {
+      margin-left: 4px
+    }
+
     tbody tr.done td {
       background: color-mix(in srgb, var(--ok) 14%, var(--cell))
     }
@@ -886,6 +905,15 @@
     if (!Array.isArray(S.base)) S.base = SEED.map(([code, cat, desc]) => ({ code, cat, desc }));
     if (!Array.isArray(S.rows)) S.rows = S.base.map(b => ({ id: uid(), ...b }));
     if (S.orient !== 'landscape' && S.orient !== 'portrait') S.orient = 'portrait';
+    ["evento", "data", "resp", "obs", "as1", "as2"].forEach(k => S[k] = "");
+    S.rows.forEach(r => {
+      r.s = "";
+      r.r = "";
+      r.l = "";
+      r.k = false;
+      r.yes = false;
+      r.no = false;
+    });
     let editing = false;
     function applyOrient() {
       const o = S.orient === 'portrait' ? 'portrait' : 'landscape';
@@ -897,10 +925,55 @@
       st.textContent = '@media print{@page{size:A4 ' + o + ';margin:12mm}}';
       renderPrintSheets();
     }
-    document.addEventListener('click', e => { const b = e.target.closest('.seg button'); if (!b) return; S.orient = b.dataset.o; save(); applyOrient() });
+    document.addEventListener('click', e => { const b = e.target.closest('.seg button'); if (!b) return; pushUndo(); S.orient = b.dataset.o; save(); applyOrient() });
     const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)) } catch (e) { } };
     const num = v => v === "" || v == null ? null : Number(v);
     const row = id => S.rows.find(r => r.id === id);
+    const undoStack = [];
+    const redoStack = [];
+
+    function pushUndo() {
+      undoStack.push(JSON.stringify(S));
+      redoStack.length = 0;
+      if (undoStack.length > 100) undoStack.shift();
+    }
+
+    function undoLast() {
+      if (!undoStack.length) return;
+      redoStack.push(JSON.stringify(S));
+      S = JSON.parse(undoStack.pop());
+      save();
+      loadMeta();
+      renderRows();
+      renderBase();
+      applyOrient();
+    }
+
+    function redoLast() {
+      if (!redoStack.length) return;
+      undoStack.push(JSON.stringify(S));
+      S = JSON.parse(redoStack.pop());
+      save();
+      loadMeta();
+      renderRows();
+      renderBase();
+      applyOrient();
+    }
+
+    document.addEventListener("keydown", e => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      const key = e.key.toLowerCase();
+      if (key === "z" && e.shiftKey) {
+        e.preventDefault();
+        redoLast();
+      } else if (key === "z") {
+        e.preventDefault();
+        undoLast();
+      } else if (key === "y") {
+        e.preventDefault();
+        redoLast();
+      }
+    });
 
     function refreshItemSuggestions() {
       const descriptions = new Map();
@@ -921,11 +994,14 @@
       $("body").innerHTML = S.rows.map((r, i) => {
         const lists = { code: "itemCodes", cat: "itemCategories", desc: "itemDescriptions" };
         const t = f => editing ? `<td class="e"><input type="text" value="${esc(r[f])}" data-id="${r.id}" data-f="${f}" aria-label="${f}"${lists[f] ? ` list="${lists[f]}"` : ""}></td>` : `<td>${esc(r[f])}</td>`;
+        const s = num(r.s), x = num(r.r);
+        const calculatedLoss = s != null && x != null ? Math.max(0, s - x) : "";
+        const lossValue = r.l !== "" && r.l != null ? r.l : calculatedLoss;
         return `<tr data-id="${r.id}">${t("code")}${t("cat")}${t("desc")}
 <td class="n"><input type="number" min="0" inputmode="numeric" value="${esc(r.s)}" data-id="${r.id}" data-f="s" aria-label="Qtd. saída"></td>
 <td class="n"><input type="number" min="0" inputmode="numeric" value="${esc(r.r)}" data-id="${r.id}" data-f="r" aria-label="Qtd. retorno"></td>
-<td class="p" data-l></td>
-<td class="c"><input type="checkbox" ${r.k ? "checked" : ""} data-id="${r.id}" data-f="k" aria-label="Conferido"></td>
+<td class="n"><input type="number" min="0" inputmode="numeric" value="${esc(lossValue)}" data-id="${r.id}" data-f="l" aria-label="Perdas"></td>
+<td class="c"><span class="conference-options"><label>Sim <input type="checkbox" ${r.yes ? "checked" : ""} data-id="${r.id}" data-f="yes" aria-label="Conferido sim"></label><label>Não <input type="checkbox" ${r.no ? "checked" : ""} data-id="${r.id}" data-f="no" aria-label="Conferido não"></label><button type="button" class="sm danger" data-act="del" data-id="${r.id}" title="Apagar item do checklist">×</button></span></td>
 <td class="act"><button type="button" class="sm" data-act="up" data-id="${r.id}" title="Subir" ${i === 0 ? "disabled" : ""}>↑</button> <button type="button" class="sm" data-act="down" data-id="${r.id}" title="Descer" ${i === S.rows.length - 1 ? "disabled" : ""}>↓</button> <button type="button" class="sm" data-act="tobase" data-id="${r.id}" title="Salvar na base">Base</button> <button type="button" class="sm danger" data-act="del" data-id="${r.id}" title="Remover do checklist">×</button></td></tr>`;
       }).join("") || `<tr><td colspan="8" style="height:60px;text-align:center">Nenhum item. Use "Editar itens" para adicionar da base ou criar um item em branco.</td></tr>`;
       refreshItemSuggestions();
@@ -935,10 +1011,11 @@
       let ts = 0, tr = 0, tl = 0, ck = 0;
       S.rows.forEach(r => {
         const s = num(r.s), x = num(r.r);
-        const l = s != null && x != null ? Math.max(0, s - x) : null;
-        ts += s || 0; tr += x || 0; tl += l || 0; if (r.k) ck++;
+        const calculated = s != null && x != null ? Math.max(0, s - x) : null;
+        const l = r.l !== "" && r.l != null ? num(r.l) : calculated;
+        ts += s || 0; tr += x || 0; tl += l || 0; if (r.yes || r.no) ck++;
         const tru = document.querySelector(`tr[data-id="${r.id}"]`);
-        if (tru) { const el = tru.querySelector("[data-l]"); el.textContent = l == null ? "" : l; el.classList.toggle("has", l > 0); tru.classList.toggle("done", !!r.k) }
+        if (tru) { tru.classList.toggle("done", !!(r.yes || r.no)); if (l > 0) tru.classList.add("has-loss"); else tru.classList.remove("has-loss") }
       });
       $("ts").textContent = ts; $("tr").textContent = tr; $("tl").textContent = tl; $("tc").textContent = ck + "/" + S.rows.length;
       renderPrintSheets();
@@ -972,14 +1049,15 @@
         let ts = 0, tr = 0, tl = 0, ck = 0;
         const body = rows.map(r => {
           const s = num(r.s), x = num(r.r);
-          const l = s != null && x != null ? Math.max(0, s - x) : null;
-          ts += s || 0; tr += x || 0; tl += l || 0; if (r.k) ck++;
+          const calculated = s != null && x != null ? Math.max(0, s - x) : null;
+          const l = r.l !== "" && r.l != null ? num(r.l) : calculated;
+          ts += s || 0; tr += x || 0; tl += l || 0; if (r.yes || r.no) ck++;
           return `<tr>
             <td>${esc(r.code)}</td><td>${esc(r.cat)}</td><td>${esc(r.desc)}</td>
             <td style="text-align:center">${r.s == null ? "" : esc(r.s)}</td>
             <td style="text-align:center">${r.r == null ? "" : esc(r.r)}</td>
             <td style="text-align:center">${l == null ? "" : l}</td>
-            <td style="text-align:center">${r.k ? "&#9745;" : "&#9633;"}</td>
+            <td style="text-align:center">Sim ${r.yes ? "&#9745;" : "&#9633;"} &nbsp; Não ${r.no ? "&#9745;" : "&#9633;"}</td>
           </tr>`;
         }).join("");
 
@@ -999,9 +1077,9 @@
               </tr></thead>
               <tbody>${body}</tbody>
               <tfoot><tr>
-                <td colspan="3">Total desta folha</td><td style="text-align:center">${ts}</td>
-                <td style="text-align:center">${tr}</td><td style="text-align:center">${tl}</td>
-                <td style="text-align:center">${ck}/${rows.length}</td>
+                <td colspan="3">Total desta folha</td><td style="text-align:center"></td>
+                <td style="text-align:center"></td><td style="text-align:center"></td>
+                <td style="text-align:center"></td>
               </tr></tfoot>
             </table>
           </div>
@@ -1016,10 +1094,17 @@
 
     document.addEventListener("input", e => {
       const t = e.target;
+      pushUndo();
       if (t.dataset.k) { S[t.dataset.k] = t.value }
-      else if (t.dataset.id) { const r = row(t.dataset.id); if (!r) return; r[t.dataset.f] = t.type === "checkbox" ? t.checked : t.value }
+      else if (t.dataset.id) {
+        const r = row(t.dataset.id); if (!r) return;
+        if (t.dataset.f === "yes") { r.yes = t.checked; if (r.yes) r.no = false }
+        else if (t.dataset.f === "no") { r.no = t.checked; if (r.no) r.yes = false }
+        else r[t.dataset.f] = t.type === "checkbox" ? t.checked : t.value;
+      }
       else if (t.dataset.bi != null) { S.base[+t.dataset.bi][t.dataset.f] = t.value; refreshItemSuggestions() }
       else return;
+      if (t.dataset.id && (t.dataset.f === "yes" || t.dataset.f === "no")) renderRows();
       save(); syncPrintMeta(); calc();
     });
     document.addEventListener("change", e => {
@@ -1046,6 +1131,7 @@
     document.addEventListener("click", e => {
       const b = e.target.closest("button[data-act]"); if (!b) return;
       const a = b.dataset.act, id = b.dataset.id;
+      pushUndo();
       if (a === "del") { S.rows = S.rows.filter(r => r.id !== id) }
       else if (a === "up" || a === "down") { const i = S.rows.findIndex(r => r.id === id), j = a === "up" ? i - 1 : i + 1; if (j < 0 || j >= S.rows.length) return;[S.rows[i], S.rows[j]] = [S.rows[j], S.rows[i]] }
       else if (a === "tobase") {
@@ -1064,10 +1150,12 @@
     clr.onclick = () => {
       if (!armed) { armed = true; clr.textContent = "Confirmar: apagar preenchimento"; timer = setTimeout(() => { armed = false; clr.textContent = "Limpar preenchimento" }, 4000); return }
       clearTimeout(timer); armed = false; clr.textContent = "Limpar preenchimento";
+      pushUndo();
       ["evento", "data", "resp", "obs", "as1", "as2"].forEach(k => S[k] = "");
-      S.rows.forEach(r => { r.s = ""; r.r = ""; r.k = false });
+      S.rows.forEach(r => { r.s = ""; r.r = ""; r.l = ""; r.k = false; r.yes = false; r.no = false });
       save(); loadMeta(); renderRows();
     };
+    save();
     loadMeta(); renderRows(); renderBase(); applyOrient();
   </script>
 
