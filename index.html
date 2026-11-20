@@ -1,0 +1,888 @@
+<!doctype html>
+<html>
+
+<head>
+  <meta charset=utf8>
+  <meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <style>
+    :root {
+      color-scheme: light;
+      box-sizing: border-box;
+      padding-top: env(safe-area-inset-top, 0px);
+      padding-bottom: env(safe-area-inset-bottom, 0px)
+    }
+
+    html {
+      scroll-padding-top: env(safe-area-inset-top, 0px)
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font: 14px -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #fff;
+      color: #000
+    }
+
+    img {
+      max-width: 100%
+    }
+
+    [hidden]:not([hidden=until-found i]) {
+      display: none !important
+    }
+  </style>
+</head>
+
+<body>
+  <title>Checklist de Buffet</title>
+  <meta name="claude:viewport-fit-sides" content="cover">
+  <style>
+    /* Layout: réplica da folha A4 paisagem do PDF, com modo de edição dos itens e base de itens cadastrados */
+    :root {
+      --bg: #ffffff;
+      --fg: #243746;
+      --teal: #2a7f7f;
+      --teal-fg: #ffffff;
+      --line: #aab8be;
+      --meta: #f2f6f7;
+      --alt: #f4f7f8;
+      --cell: #ffffff;
+      --text: #303b41;
+      --ok: #1c7a4b;
+      --loss: #b3361f;
+      --font: Helvetica, Arial, "Liberation Sans", sans-serif;
+    }
+
+    @media (prefers-color-scheme:dark) {
+      :root:not([data-theme="light"]) {
+        --bg: #10181d;
+        --fg: #e4edf1;
+        --teal: #2a7f7f;
+        --teal-fg: #ffffff;
+        --line: #3a4d57;
+        --meta: #18232a;
+        --alt: #18232a;
+        --cell: #10181d;
+        --text: #d5dfe4;
+        --ok: #6fd49b;
+        --loss: #ff9a85;
+        color-scheme: dark
+      }
+    }
+
+    :root[data-theme="dark"] {
+      --bg: #10181d;
+      --fg: #e4edf1;
+      --teal: #2a7f7f;
+      --teal-fg: #ffffff;
+      --line: #3a4d57;
+      --meta: #18232a;
+      --alt: #18232a;
+      --cell: #10181d;
+      --text: #d5dfe4;
+      --ok: #6fd49b;
+      --loss: #ff9a85;
+      color-scheme: dark
+    }
+
+    * {
+      box-sizing: border-box
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 13px;
+      line-height: 1.3;
+      padding-block: 32px 48px;
+      padding-left: max(16px, env(safe-area-inset-left, 0px));
+      padding-right: max(16px, env(safe-area-inset-right, 0px))
+    }
+
+    .page {
+      max-width: 1180px;
+      margin: 0 auto
+    }
+
+    .page[data-o=portrait] {
+      max-width: 800px
+    }
+
+    .page[data-o=portrait] table {
+      min-width: 560px
+    }
+
+    .page[data-o=portrait] .meta {
+      grid-template-columns: 1fr .7fr 1.2fr
+    }
+
+    .page[data-o=portrait] .meta label:first-child {
+      grid-column: auto;
+      border-bottom: 0
+    }
+
+    .page[data-o=portrait] .meta label:nth-child(2) {
+      border-left: 1px solid var(--line)
+    }
+
+    .page[data-o=portrait] th:nth-child(3),
+    .page[data-o=portrait] td:nth-child(3) {
+      width: 18%
+    }
+
+    .seg {
+      display: inline-flex
+    }
+
+    .seg button {
+      border-radius: 0
+    }
+
+    .seg button+button {
+      border-left: 0
+    }
+
+    .seglabel {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--fg)
+    }
+
+    h1 {
+      margin: 0;
+      text-align: center;
+      color: var(--fg);
+      font-size: 22px;
+      font-weight: 700;
+      text-transform: uppercase
+    }
+
+    .sub {
+      margin: 6px 0 0;
+      text-align: center;
+      color: var(--teal);
+      font-size: 11.5px;
+      font-weight: 700;
+      text-transform: uppercase
+    }
+
+    .meta {
+      display: grid;
+      grid-template-columns: 1.1fr .7fr 1.2fr;
+      margin-top: 18px;
+      background: var(--meta);
+      border: 1px solid var(--line)
+    }
+
+    .meta label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 8px;
+      border-left: 1px solid var(--line);
+      min-width: 0;
+      color: var(--fg);
+      font-size: 11.5px;
+      font-weight: 700;
+      text-transform: uppercase
+    }
+
+    .meta label:first-child {
+      border-left: 0
+    }
+
+    .meta input {
+      flex: 1;
+      min-width: 0
+    }
+
+    input[type=text],
+    input[type=date],
+    input[type=number],
+    textarea {
+      font: inherit;
+      color: var(--text);
+      background: transparent;
+      border: 0;
+      border-bottom: 1px solid var(--fg);
+      border-radius: 0;
+      padding: 1px 2px;
+      width: 100%;
+      font-size: 12px
+    }
+
+    input[type=date] {
+      font-size: 12px
+    }
+
+    input:focus-visible,
+    textarea:focus-visible,
+    button:focus-visible,
+    summary:focus-visible {
+      outline: 2px solid var(--teal);
+      outline-offset: 2px
+    }
+
+    .tools {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 16px 2.2% 0;
+      align-items: center
+    }
+
+    .tools .grow {
+      flex: 1
+    }
+
+    .scroll {
+      overflow-x: auto;
+      margin: 10px 2.2% 0
+    }
+
+    table {
+      width: 100%;
+      min-width: 760px;
+      border-collapse: collapse;
+      background: var(--cell)
+    }
+
+    th {
+      background: var(--teal);
+      color: var(--teal-fg);
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 9px 4px;
+      border: 1px solid var(--line);
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact
+    }
+
+    td {
+      border: 1px solid var(--line);
+      padding: 0 5px;
+      height: 25px;
+      font-size: 11px;
+      vertical-align: middle
+    }
+
+    tbody tr:nth-child(even) td {
+      background: var(--alt)
+    }
+
+    th.w1 {
+      width: 9%
+    }
+
+    th.w2 {
+      width: 13%
+    }
+
+    th.w4,
+    th.w5 {
+      width: 11%
+    }
+
+    th.w6 {
+      width: 8%
+    }
+
+    th.w7 {
+      width: 8.5%
+    }
+
+    td.n {
+      padding: 0
+    }
+
+    td.n input {
+      height: 24px;
+      text-align: center;
+      border: 0;
+      padding: 0 4px;
+      font-size: 12px;
+      font-variant-numeric: tabular-nums
+    }
+
+    td.p {
+      text-align: center;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums
+    }
+
+    td.p.has {
+      color: var(--loss)
+    }
+
+    td.c {
+      text-align: center
+    }
+
+    td.c input {
+      width: 16px;
+      height: 16px;
+      margin: 0;
+      accent-color: var(--ok);
+      vertical-align: middle
+    }
+
+    tbody tr.done td {
+      background: color-mix(in srgb, var(--ok) 14%, var(--cell))
+    }
+
+    tfoot td {
+      font-weight: 700;
+      background: var(--meta);
+      text-align: center;
+      font-variant-numeric: tabular-nums;
+      color: var(--fg)
+    }
+
+    tfoot td:first-child {
+      text-align: left;
+      text-transform: uppercase;
+      font-size: 11px
+    }
+
+    td.e input {
+      border-bottom: 1px dashed var(--fg);
+      font-size: 11.5px
+    }
+
+    .act {
+      display: none;
+      width: 92px;
+      text-align: center
+    }
+
+    table.editing .act {
+      display: table-cell
+    }
+
+    td.act {
+      white-space: nowrap
+    }
+
+    button {
+      font: inherit;
+      font-weight: 700;
+      padding: 7px 12px;
+      border: 1px solid var(--line);
+      background: var(--meta);
+      color: var(--fg);
+      cursor: pointer
+    }
+
+    button.pri {
+      background: var(--teal);
+      border-color: var(--teal);
+      color: var(--teal-fg)
+    }
+
+    button.danger {
+      color: var(--loss)
+    }
+
+    button.sm {
+      padding: 3px 8px;
+      font-size: 11px
+    }
+
+    button[aria-pressed=true] {
+      background: var(--teal);
+      color: var(--teal-fg);
+      border-color: var(--teal)
+    }
+
+    .line {
+      display: flex;
+      align-items: flex-end;
+      gap: 6px;
+      margin-top: 14px;
+      color: var(--fg);
+      font-size: 11.5px;
+      font-weight: 700;
+      text-transform: uppercase
+    }
+
+    .line textarea {
+      flex: 1;
+      min-width: 0;
+      resize: vertical;
+      min-height: 22px;
+      border: 0;
+      border-bottom: 1px solid var(--fg);
+      font-size: 12px
+    }
+
+    .sigs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0 24px
+    }
+
+    .sigs .line {
+      flex: 1 1 320px
+    }
+
+    .line span {
+      white-space: nowrap
+    }
+
+    .base {
+      margin: 22px 2.2% 0;
+      border: 1px solid var(--line);
+      background: var(--meta)
+    }
+
+    .base summary {
+      cursor: pointer;
+      padding: 12px 14px;
+      font-weight: 700;
+      color: var(--fg);
+      text-transform: uppercase;
+      font-size: 11.5px
+    }
+
+    .base .in {
+      padding: 0 14px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px
+    }
+
+    .base .hint {
+      margin: 0;
+      color: var(--text);
+      font-size: 12px
+    }
+
+    .base table {
+      min-width: 640px
+    }
+
+    .foot {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-top: 28px;
+      font-size: 11.5px;
+      color: var(--fg);
+      opacity: .8
+    }
+
+    @media (max-width:760px) {
+      .meta {
+        grid-template-columns: 1fr
+      }
+
+      .meta label {
+        border-left: 0;
+        border-top: 1px solid var(--line)
+      }
+
+      .meta label:first-child {
+        border-top: 0
+      }
+
+      .scroll,
+      .tools,
+      .base {
+        margin-inline: 0
+      }
+
+      h1 {
+        font-size: 22px
+      }
+    }
+
+    @media print {
+      @page {
+        size: A4 landscape;
+        margin: 12mm
+      }
+
+      :root:not(#x) {
+        --bg: #fff;
+        --fg: #243746;
+        --teal: #2a7f7f;
+        --teal-fg: #fff;
+        --line: #aab8be;
+        --meta: #f2f6f7;
+        --alt: #f4f7f8;
+        --cell: #fff;
+        --text: #303b41;
+        --ok: #1c7a4b;
+        --loss: #b3361f;
+        color-scheme: light
+      }
+
+      body {
+        padding: 0;
+        font-size: 11px
+      }
+
+      .noprint,
+      .act {
+        display: none !important
+      }
+
+      .scroll {
+        overflow: visible;
+        margin: 12px 2.2% 0
+      }
+
+      table {
+        min-width: 0
+      }
+
+      .page[data-o=portrait] {
+        max-width: none;
+        width: 100%;
+        margin: 0
+      }
+
+      .page[data-o=portrait] h1 {
+        font-size: 20px
+      }
+
+      .page[data-o=portrait] .sub {
+        margin-top: 3px
+      }
+
+      .page[data-o=portrait] .meta {
+        margin-top: 10px
+      }
+
+      .page[data-o=portrait] .scroll {
+        margin: 6px 0 0
+      }
+
+      .page[data-o=portrait] td {
+        height: 22px;
+        padding: 0 3px;
+        font-size: 9.5px
+      }
+
+      .page[data-o=portrait] th {
+        padding: 6px 3px;
+        font-size: 9px
+      }
+
+      .page[data-o=portrait] .line {
+        margin-top: 8px
+      }
+
+      .page[data-o=portrait] .meta label {
+        padding: 6px 6px
+      }
+
+      .page[data-o=portrait] .meta {
+        grid-template-columns: 1fr .7fr 1.2fr !important
+      }
+
+      .page[data-o=portrait] .meta label {
+        border-top: 0;
+        border-left: 1px solid var(--line)
+      }
+
+      .page[data-o=portrait] .meta label:first-child {
+        grid-column: auto;
+        border-left: 0
+      }
+
+      .page[data-o=portrait] table {
+        width: 100%;
+        table-layout: fixed
+      }
+
+      .page[data-o=portrait] th:nth-child(1),
+      .page[data-o=portrait] td:nth-child(1) {
+        width: 11%
+      }
+
+      .page[data-o=portrait] th:nth-child(2),
+      .page[data-o=portrait] td:nth-child(2) {
+        width: 16%
+      }
+
+      .page[data-o=portrait] th:nth-child(3),
+      .page[data-o=portrait] td:nth-child(3) {
+        width: 18%
+      }
+
+      .page[data-o=portrait] th:nth-child(4),
+      .page[data-o=portrait] td:nth-child(4) {
+        width: 13%
+      }
+
+      .page[data-o=portrait] th:nth-child(5),
+      .page[data-o=portrait] td:nth-child(5) {
+        width: 13%
+      }
+
+      .page[data-o=portrait] th:nth-child(6),
+      .page[data-o=portrait] td:nth-child(6) {
+        width: 11%
+      }
+
+      .page[data-o=portrait] th:nth-child(7),
+      .page[data-o=portrait] td:nth-child(7) {
+        width: 18%
+      }
+
+      td,
+      th,
+      .meta {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact
+      }
+
+      tbody tr.done td {
+        background: var(--cell) !important
+      }
+
+      tbody tr:nth-child(even) td {
+        background: var(--alt) !important
+      }
+
+      tr {
+        break-inside: avoid
+      }
+    }
+  </style>
+
+  <div class="page">
+    <h1>Checklist de Buffet</h1>
+    <p class="sub">Controle de materiais — Saída, retorno e conferência</p>
+
+    <div class="meta">
+      <label>Evento:<input type="text" id="evento" data-k="evento" autocomplete="off"></label>
+      <label>Data:<input type="date" id="data" data-k="data"></label>
+      <label>Responsável:<input type="text" id="resp" data-k="resp" autocomplete="off"></label>
+    </div>
+
+    <div class="tools noprint">
+      <span class="seglabel">Folha:</span>
+      <span class="seg" role="group" aria-label="Orientação da folha"><button type="button" data-o="landscape"
+          aria-pressed="true">Horizontal</button><button type="button" data-o="portrait"
+          aria-pressed="false">Retrato</button></span>
+      <button type="button" id="editBtn" aria-pressed="false">Editar itens</button>
+      <span id="editTools" hidden style="display:contents">
+        <button type="button" id="addBlank">+ Item em branco</button>
+        <button type="button" id="resetBase">Usar todos da base</button>
+      </span>
+      <span class="grow"></span>
+      <button type="button" class="danger" id="clear">Limpar preenchimento</button>
+    </div>
+
+    <div class="scroll">
+      <table id="tbl">
+        <thead>
+          <tr>
+            <th class="w1">Código</th>
+            <th class="w2">Categoria</th>
+            <th>Descrição do item</th>
+            <th class="w4">Qtd. saída</th>
+            <th class="w5">Qtd. retorno</th>
+            <th class="w6">Perdas</th>
+            <th class="w7">Conferido</th>
+            <th class="act">Ações</th>
+          </tr>
+        </thead>
+        <tbody id="body"></tbody>
+        <tfoot>
+          <tr>
+            <td colspan="3">Total</td>
+            <td id="ts">0</td>
+            <td id="tr">0</td>
+            <td id="tl">0</td>
+            <td id="tc">0/0</td>
+            <td class="act"></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    <datalist id="itemDescriptions"></datalist>
+    <datalist id="itemCategories"></datalist>
+    <datalist id="itemCodes"></datalist>
+
+    <div class="line"><span>Observações:</span><textarea id="obs" data-k="obs" rows="1"
+        aria-label="Observações"></textarea></div>
+    <div class="sigs">
+      <div class="line"><span>Assinatura do responsável:</span><input type="text" id="as1" data-k="as1"
+          autocomplete="off"></div>
+      <div class="line"><span>Assinatura do contratante:</span><input type="text" id="as2" data-k="as2"
+          autocomplete="off"></div>
+    </div>
+
+    <details class="base noprint" id="baseBox">
+      <summary>Base de itens cadastrados</summary>
+      <div class="in">
+        <p class="hint">Itens que você usa com frequência. Adicione ao checklist de cada evento e altere o checklist sem
+          mexer na base.</p>
+        <div class="scroll" style="margin:0">
+          <table id="baseTbl">
+            <thead>
+              <tr>
+                <th class="w1">Código</th>
+                <th class="w2">Categoria</th>
+                <th>Descrição</th>
+                <th style="width:210px">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="baseBody"></tbody>
+          </table>
+        </div>
+        <div><button type="button" id="addBase">+ Novo item na base</button></div>
+      </div>
+    </details>
+
+    <div class="foot noprint">
+      <span>Perdas = saída − retorno. Tudo fica salvo neste navegador. Para imprimir, use o menu de impressão do
+        navegador (Ctrl+P).</span>
+    </div>
+  </div>
+
+  <script>
+    const SEED = [
+      ["COP-01", "Copos", "Copo Água"], ["COP-02", "Copos", "Taça Vinho"], ["COP-03", "Copos", "Copo Whisky"],
+      ["PRT-01", "Pratos", "Prato Mesa"], ["PRT-02", "Pratos", "Prato Sobremesa"],
+      ["TAL-01", "Talheres", "Talher Mesa"], ["TAL-02", "Talheres", "Par Sobremesa"], ["TAL-03", "Talheres", "Colher Sobremesa G"], ["TAL-04", "Talheres", "Colher Sobremesa M"], ["TAL-05", "Talheres", "Colher Sobremesa P"],
+      ["JAR-01", "Jarras", "Jarra Vidro"], ["SUQ-01", "Suqueiras", "Suqueira Vidro"], ["SUQ-02", "Suqueiras", "Suqueira Acrílico"],
+      ["TRV-01", "Travessas", "Travessa Vidro"], ["TRV-02", "Travessa", "Travessa Madeira"], ["TRV-03", "Travessas", "Travessa Prata"],
+      ["MAD-01", "Madeira Diversas", ""], ["Div-01", "Outros Diversos", ""]];
+    const KEY = "checklist-buffet-v3";
+    const $ = id => document.getElementById(id);
+    const uid = () => Math.random().toString(36).slice(2, 9);
+    const esc = s => String(s ?? "").replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+    let S = {};
+    try { S = JSON.parse(localStorage.getItem(KEY) || "{}") || {} } catch (e) { S = {} }
+    if (!Array.isArray(S.base)) S.base = SEED.map(([code, cat, desc]) => ({ code, cat, desc }));
+    if (!Array.isArray(S.rows)) S.rows = S.base.map(b => ({ id: uid(), ...b }));
+    let editing = false;
+    function applyOrient() {
+      const o = S.orient === 'portrait' ? 'portrait' : 'landscape';
+      document.querySelector('.page').dataset.o = o;
+      document.querySelectorAll('.seg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.o === o));
+      let st = document.getElementById('pagestyle');
+      if (!st) { st = document.createElement('style'); st.id = 'pagestyle'; document.head.appendChild(st) }
+      st.textContent = '@media print{@page{size:A4 ' + o + ';margin:' + (o === 'portrait' ? '6mm' : '10mm') + '}}';
+    }
+    document.addEventListener('click', e => { const b = e.target.closest('.seg button'); if (!b) return; S.orient = b.dataset.o; save(); applyOrient() });
+    const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)) } catch (e) { } };
+    const num = v => v === "" || v == null ? null : Number(v);
+    const row = id => S.rows.find(r => r.id === id);
+
+    function refreshItemSuggestions() {
+      const descriptions = new Map();
+      const categories = new Map();
+      const codes = new Map();
+      S.base.forEach(item => {
+        if (item.desc?.trim()) descriptions.set(item.desc.trim().toLowerCase(), item.desc.trim());
+        if (item.cat?.trim()) categories.set(item.cat.trim().toLowerCase(), item.cat.trim());
+        if (item.code?.trim()) codes.set(item.code.trim().toLowerCase(), item.code.trim());
+      });
+      $("itemDescriptions").innerHTML = [...descriptions.values()].map(v => `<option value="${esc(v)}"></option>`).join("");
+      $("itemCategories").innerHTML = [...categories.values()].map(v => `<option value="${esc(v)}"></option>`).join("");
+      $("itemCodes").innerHTML = [...codes.values()].map(v => `<option value="${esc(v)}"></option>`).join("");
+    }
+
+    function renderRows() {
+      $("tbl").classList.toggle("editing", editing);
+      $("body").innerHTML = S.rows.map((r, i) => {
+        const lists = { code: "itemCodes", cat: "itemCategories", desc: "itemDescriptions" };
+        const t = f => editing ? `<td class="e"><input type="text" value="${esc(r[f])}" data-id="${r.id}" data-f="${f}" aria-label="${f}"${lists[f] ? ` list="${lists[f]}"` : ""}></td>` : `<td>${esc(r[f])}</td>`;
+        return `<tr data-id="${r.id}">${t("code")}${t("cat")}${t("desc")}
+<td class="n"><input type="number" min="0" inputmode="numeric" value="${esc(r.s)}" data-id="${r.id}" data-f="s" aria-label="Qtd. saída"></td>
+<td class="n"><input type="number" min="0" inputmode="numeric" value="${esc(r.r)}" data-id="${r.id}" data-f="r" aria-label="Qtd. retorno"></td>
+<td class="p" data-l></td>
+<td class="c"><input type="checkbox" ${r.k ? "checked" : ""} data-id="${r.id}" data-f="k" aria-label="Conferido"></td>
+<td class="act"><button type="button" class="sm" data-act="up" data-id="${r.id}" title="Subir" ${i === 0 ? "disabled" : ""}>↑</button> <button type="button" class="sm" data-act="down" data-id="${r.id}" title="Descer" ${i === S.rows.length - 1 ? "disabled" : ""}>↓</button> <button type="button" class="sm" data-act="tobase" data-id="${r.id}" title="Salvar na base">Base</button> <button type="button" class="sm danger" data-act="del" data-id="${r.id}" title="Remover do checklist">×</button></td></tr>`;
+      }).join("") || `<tr><td colspan="8" style="height:60px;text-align:center">Nenhum item. Use "Editar itens" para adicionar da base ou criar um item em branco.</td></tr>`;
+      refreshItemSuggestions();
+      calc();
+    }
+    function calc() {
+      let ts = 0, tr = 0, tl = 0, ck = 0;
+      S.rows.forEach(r => {
+        const s = num(r.s), x = num(r.r);
+        const l = s != null && x != null ? Math.max(0, s - x) : null;
+        ts += s || 0; tr += x || 0; tl += l || 0; if (r.k) ck++;
+        const tru = document.querySelector(`tr[data-id="${r.id}"]`);
+        if (tru) { const el = tru.querySelector("[data-l]"); el.textContent = l == null ? "" : l; el.classList.toggle("has", l > 0); tru.classList.toggle("done", !!r.k) }
+      });
+      $("ts").textContent = ts; $("tr").textContent = tr; $("tl").textContent = tl; $("tc").textContent = ck + "/" + S.rows.length;
+    }
+    function renderBase() {
+      $("baseBody").innerHTML = S.base.map((b, i) => `<tr>${["code", "cat", "desc"].map(f => `<td class="e"><input type="text" value="${esc(b[f])}" data-bi="${i}" data-f="${f}" aria-label="${f}"></td>`).join("")}
+<td style="text-align:center;white-space:nowrap"><button type="button" class="sm" data-act="addrow" data-bi="${i}">Adicionar ao checklist</button> <button type="button" class="sm danger" data-act="delbase" data-bi="${i}" title="Remover da base">×</button></td></tr>`).join("");
+    }
+    function loadMeta() { document.querySelectorAll("[data-k]").forEach(i => i.value = S[i.dataset.k] || "") }
+
+    document.addEventListener("input", e => {
+      const t = e.target;
+      if (t.dataset.k) { S[t.dataset.k] = t.value }
+      else if (t.dataset.id) { const r = row(t.dataset.id); if (!r) return; r[t.dataset.f] = t.type === "checkbox" ? t.checked : t.value }
+      else if (t.dataset.bi != null) { S.base[+t.dataset.bi][t.dataset.f] = t.value; refreshItemSuggestions() }
+      else return;
+      save(); calc();
+    });
+    document.addEventListener("change", e => {
+      const t = e.target;
+      if (!t.dataset.id) return;
+      const r = row(t.dataset.id);
+      if (!r) return;
+      const field = t.dataset.f;
+      if (!["code", "cat", "desc"].includes(field)) return;
+
+      const value = t.value.trim().toLowerCase();
+      const match = S.base.find(item =>
+        field === "code" ? item.code?.trim().toLowerCase() === value :
+          field === "cat" ? item.cat?.trim().toLowerCase() === value :
+            item.desc?.trim().toLowerCase() === value
+      );
+      if (!match) return;
+      r.code = match.code;
+      r.cat = match.cat;
+      r.desc = match.desc;
+      save();
+      renderRows();
+    });
+    document.addEventListener("click", e => {
+      const b = e.target.closest("button[data-act]"); if (!b) return;
+      const a = b.dataset.act, id = b.dataset.id;
+      if (a === "del") { S.rows = S.rows.filter(r => r.id !== id) }
+      else if (a === "up" || a === "down") { const i = S.rows.findIndex(r => r.id === id), j = a === "up" ? i - 1 : i + 1; if (j < 0 || j >= S.rows.length) return;[S.rows[i], S.rows[j]] = [S.rows[j], S.rows[i]] }
+      else if (a === "tobase") {
+        const r = row(id); const k = S.base.findIndex(x => x.code.trim().toLowerCase() === r.code.trim().toLowerCase() && r.code.trim());
+        const item = { code: r.code, cat: r.cat, desc: r.desc }; if (k >= 0) S.base[k] = item; else S.base.push(item); renderBase(); b.textContent = "Salvo"; setTimeout(() => { b.textContent = "Base" }, 1200); save(); return
+      }
+      else if (a === "addrow") { const x = S.base[+b.dataset.bi]; S.rows.push({ id: uid(), code: x.code, cat: x.cat, desc: x.desc }); b.textContent = "Adicionado"; setTimeout(() => { b.textContent = "Adicionar ao checklist" }, 1200) }
+      else if (a === "delbase") { S.base.splice(+b.dataset.bi, 1); renderBase(); save(); return }
+      save(); renderRows();
+    });
+    $("editBtn").onclick = () => { editing = !editing; $("editBtn").setAttribute("aria-pressed", editing); $("editBtn").textContent = editing ? "Concluir edição" : "Editar itens"; $("editTools").hidden = !editing; renderRows() };
+    $("addBlank").onclick = () => { S.rows.push({ id: uid(), code: "", cat: "", desc: "" }); save(); renderRows() };
+    $("resetBase").onclick = () => { const have = new Set(S.rows.map(r => r.code.trim().toLowerCase())); S.base.forEach(b => { if (!have.has(b.code.trim().toLowerCase())) S.rows.push({ id: uid(), ...b }) }); save(); renderRows() };
+    $("addBase").onclick = () => { S.base.push({ code: "", cat: "", desc: "" }); save(); renderBase() };
+    const clr = $("clear"); let armed = false, timer;
+    clr.onclick = () => {
+      if (!armed) { armed = true; clr.textContent = "Confirmar: apagar preenchimento"; timer = setTimeout(() => { armed = false; clr.textContent = "Limpar preenchimento" }, 4000); return }
+      clearTimeout(timer); armed = false; clr.textContent = "Limpar preenchimento";
+      ["evento", "data", "resp", "obs", "as1", "as2"].forEach(k => S[k] = "");
+      S.rows.forEach(r => { r.s = ""; r.r = ""; r.k = false });
+      save(); loadMeta(); renderRows();
+    };
+    loadMeta(); renderRows(); renderBase(); applyOrient();
+  </script>
+
+</body>
+
+</html>
