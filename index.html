@@ -530,11 +530,6 @@
     }
 
     @media print {
-      @page {
-        size: A4 portrait;
-        margin: 12mm
-      }
-
       :root:not(#x) {
         --bg: #fff;
         --fg: #243746;
@@ -802,6 +797,7 @@
           aria-pressed="false">Horizontal</button><button type="button" data-o="portrait"
           aria-pressed="true">Retrato</button></span>
       <button type="button" id="editBtn" aria-pressed="false">Editar itens</button>
+      <button type="button" class="pri" id="printBtn">Imprimir</button>
       <span id="editTools" hidden style="display:contents">
         <button type="button" id="addBlank">+ Item em branco</button>
         <button type="button" id="resetBase">Usar todos da base</button>
@@ -903,8 +899,12 @@
     let S = {};
     try { S = JSON.parse(localStorage.getItem(KEY) || "{}") || {} } catch (e) { S = {} }
     if (!Array.isArray(S.base)) S.base = SEED.map(([code, cat, desc]) => ({ code, cat, desc }));
-    if (!Array.isArray(S.rows)) S.rows = S.base.map(b => ({ id: uid(), ...b }));
+    S.rows = Array.from({ length: 5 }, () => ({
+      id: uid(), code: "", cat: "", desc: "", s: "", r: "", l: "",
+      k: false, yes: false, no: false
+    }));
     if (S.orient !== 'landscape' && S.orient !== 'portrait') S.orient = 'portrait';
+    // Checklist begins blank whenever the page is opened or refreshed.
     ["evento", "data", "resp", "obs", "as1", "as2"].forEach(k => S[k] = "");
     S.rows.forEach(r => {
       r.s = "";
@@ -922,7 +922,8 @@
       document.querySelectorAll('.seg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.o === o));
       let st = document.getElementById('pagestyle');
       if (!st) { st = document.createElement('style'); st.id = 'pagestyle'; document.head.appendChild(st) }
-      st.textContent = '@media print{@page{size:A4 ' + o + ';margin:12mm}}';
+      const margin = o === 'landscape' ? '6mm 8mm' : '8mm';
+      st.textContent = '@page{size:A4 ' + o + ';margin:' + margin + '}';
       renderPrintSheets();
     }
     document.addEventListener('click', e => { const b = e.target.closest('.seg button'); if (!b) return; pushUndo(); S.orient = b.dataset.o; save(); applyOrient() });
@@ -1143,6 +1144,7 @@
       save(); renderRows();
     });
     $("editBtn").onclick = () => { editing = !editing; $("editBtn").setAttribute("aria-pressed", editing); $("editBtn").textContent = editing ? "Concluir edição" : "Editar itens"; $("editTools").hidden = !editing; renderRows() };
+    $("printBtn").onclick = () => window.print();
     $("addBlank").onclick = () => { S.rows.push({ id: uid(), code: "", cat: "", desc: "" }); save(); renderRows() };
     $("resetBase").onclick = () => { const have = new Set(S.rows.map(r => r.code.trim().toLowerCase())); S.base.forEach(b => { if (!have.has(b.code.trim().toLowerCase())) S.rows.push({ id: uid(), ...b }) }); save(); renderRows() };
     $("addBase").onclick = () => { S.base.push({ code: "", cat: "", desc: "" }); save(); renderBase() };
