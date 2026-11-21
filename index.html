@@ -238,6 +238,166 @@
       flex: 1
     }
 
+    .checklist-menu {
+      display: flex;
+      flex-direction: column;
+      gap: 12px
+    }
+
+    .checklist-list {
+      display: flex;
+      flex-direction: column;
+      gap: 7px
+    }
+
+    .checklist-entry {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      min-height: 44px;
+      text-align: left
+    }
+
+    .checklist-entry.active {
+      border-color: var(--teal);
+      background: var(--teal);
+      color: #fff
+    }
+
+    .checklist-entry small {
+      opacity: .75
+    }
+
+    .menu-toggle {
+      position: fixed;
+      top: 12px;
+      left: 12px;
+      z-index: 40;
+      width: 44px;
+      height: 44px;
+      display: grid;
+      place-items: center;
+      padding: 0;
+      border-radius: 8px;
+      font-size: 24px;
+      line-height: 1
+    }
+
+    .checklist-drawer {
+      position: fixed;
+      inset: 0 auto 0 0;
+      z-index: 50;
+      width: min(340px, calc(100vw - 48px));
+      padding: 18px;
+      overflow-y: auto;
+      background: var(--bg);
+      border-right: 1px solid var(--border);
+      box-shadow: 8px 0 24px rgba(0, 0, 0, .18);
+      transform: translateX(-100%);
+      transition: transform .18s ease
+    }
+
+    .checklist-drawer.open {
+      transform: translateX(0)
+    }
+
+    .drawer-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px
+    }
+
+    .drawer-head h2 {
+      margin: 0;
+      font-size: 20px
+    }
+
+    .drawer-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px
+    }
+
+    .drawer-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 45;
+      background: rgba(0, 0, 0, .28)
+    }
+
+    .category-picker {
+      position: relative;
+      width: 100%
+    }
+
+    .category-options {
+      position: absolute;
+      z-index: 30;
+      top: calc(100% + 3px);
+      left: 0;
+      width: max(180px, 100%);
+      max-height: 220px;
+      overflow-y: auto;
+      padding: 4px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--bg);
+      box-shadow: 0 8px 18px rgba(0, 0, 0, .16)
+    }
+
+    .category-options button {
+      width: 100%;
+      margin: 2px 0;
+      text-align: left
+    }
+
+    .item-description-wrap {
+      position: relative
+    }
+
+    .item-photo-preview {
+      position: fixed;
+      z-index: 35;
+      width: 220px;
+      max-height: 220px;
+      display: none;
+      padding: 6px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--bg);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, .22)
+    }
+
+    .item-photo-preview img {
+      width: 100%;
+      max-height: 205px;
+      display: block;
+      object-fit: contain
+    }
+
+    .base-photo {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px
+    }
+
+    .base-photo img {
+      width: 44px;
+      height: 44px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      object-fit: cover
+    }
+
+    .item-description-wrap:hover .item-photo-preview {
+      display: block
+    }
+
     .scroll {
       overflow-x: auto;
       margin: 10px 2.2% 0
@@ -799,14 +959,43 @@
     }
   </style>
 
+  <button type="button" class="menu-toggle noprint" id="menuToggle" aria-label="Abrir menu das checklists"
+    aria-expanded="false" aria-controls="checklistDrawer">&#9776;</button>
+  <aside class="checklist-drawer noprint" id="checklistDrawer" aria-label="Menu das checklists">
+    <div class="drawer-head">
+      <h2>Minhas checklists</h2>
+      <button type="button" id="closeChecklistMenu" aria-label="Fechar menu">&times;</button>
+    </div>
+    <div class="checklist-menu">
+      <div class="checklist-list" id="checklistList"></div>
+      <div class="drawer-actions">
+        <button type="button" id="newChecklist">Nova</button>
+        <button type="button" id="duplicateChecklist">Duplicar</button>
+        <button type="button" class="danger" id="deleteChecklist" style="grid-column:1/-1">Excluir</button>
+      </div>
+    </div>
+  </aside>
+  <div class="drawer-overlay noprint" id="drawerOverlay" hidden></div>
+
   <div class="page">
     <h1>Checklist de Buffet</h1>
     <p class="sub">Controle de materiais — Saída, retorno e conferência</p>
 
     <div class="meta">
+      <label>Nome da checklist:<input type="text" id="nome" data-k="nome" autocomplete="off"
+          placeholder="Ex.: Casamento 20/12"></label>
       <label>Evento:<input type="text" id="evento" data-k="evento" autocomplete="off"></label>
       <label>Data:<input type="date" id="data" data-k="data"></label>
       <label>Responsável:<input type="text" id="resp" data-k="resp" autocomplete="off"></label>
+      <label>Guardar por:
+        <select id="retention" data-k="retention">
+          <option value="1">1 hora</option>
+          <option value="24">24 horas</option>
+          <option value="168">7 dias</option>
+          <option value="720">30 dias</option>
+          <option value="0">Sem limite</option>
+        </select>
+      </label>
     </div>
 
     <div class="tools noprint">
@@ -816,6 +1005,7 @@
           aria-pressed="true">Retrato</button></span>
       <button type="button" id="editBtn" aria-pressed="false">Editar itens</button>
       <button type="button" class="pri" id="printBtn">Imprimir</button>
+      <button type="button" class="pri" id="saveBtn">Salvar checklist</button>
       <span id="editTools" hidden style="display:contents">
         <button type="button" id="addBlank">+ Item em branco</button>
         <button type="button" id="resetBase">Usar todos da base</button>
@@ -886,6 +1076,7 @@
                 <th class="w2">Categoria</th>
                 <th>Descrição</th>
                 <th class="wStock">Estoque</th>
+                <th style="width:150px">Foto</th>
                 <th style="width:210px">Ações</th>
               </tr>
             </thead>
@@ -906,36 +1097,74 @@
 
   <script>
     const SEED = [
-      ["COP-01", "Copos", "Copo Água"], ["COP-02", "Copos", "Taça Vinho"], ["COP-03", "Copos", "Copo Whisky"],
+      ["COP-01", "Copos", "Copo Água", "copo-agua.png"], ["COP-02", "Copos", "Taça Vinho"], ["COP-03", "Copos", "Copo Whisky"],
       ["PRT-01", "Pratos", "Prato Mesa"], ["PRT-02", "Pratos", "Prato Sobremesa"],
       ["TAL-01", "Talheres", "Talher Mesa"], ["TAL-02", "Talheres", "Par Sobremesa"], ["TAL-03", "Talheres", "Colher Sobremesa G"], ["TAL-04", "Talheres", "Colher Sobremesa M"], ["TAL-05", "Talheres", "Colher Sobremesa P"],
       ["JAR-01", "Jarras", "Jarra Vidro"], ["SUQ-01", "Suqueiras", "Suqueira Vidro"], ["SUQ-02", "Suqueiras", "Suqueira Acrílico"],
       ["TRV-01", "Travessas", "Travessa Vidro"], ["TRV-02", "Travessa", "Travessa Madeira"], ["TRV-03", "Travessas", "Travessa Prata"],
       ["MAD-01", "Madeira Diversas", ""], ["Div-01", "Outros Diversos", ""]];
     const KEY = "checklist-buffet-v3";
+    const LIBRARY_KEY = "checklist-buffet-library-v1";
     const $ = id => document.getElementById(id);
     const uid = () => Math.random().toString(36).slice(2, 9);
     const esc = s => String(s ?? "").replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
     let S = {};
     try { S = JSON.parse(localStorage.getItem(KEY) || "{}") || {} } catch (e) { S = {} }
-    if (!Array.isArray(S.base)) S.base = SEED.map(([code, cat, desc]) => ({ code, cat, desc }));
-    S.base.forEach(item => { if (item.stock == null) item.stock = ""; });
-    S.rows = Array.from({ length: 5 }, () => ({
-      id: uid(), code: "", cat: "", desc: "", stock: "", s: "", r: "", l: "",
-      k: false, yes: false, no: false
-    }));
-    if (S.orient !== 'landscape' && S.orient !== 'portrait') S.orient = 'portrait';
-    // Checklist begins blank whenever the page is opened or refreshed.
-    ["evento", "data", "resp", "obs", "as1", "as2"].forEach(k => S[k] = "");
-    S.rows.forEach(r => {
-      r.s = "";
-      r.r = "";
-      r.l = "";
-      r.k = false;
-      r.yes = false;
-      r.no = false;
+    if (!Array.isArray(S.base)) S.base = SEED.map(([code, cat, desc, photo]) => ({ code, cat, desc, photo: photo || "" }));
+    S.base.forEach(item => {
+      if (item.stock == null) item.stock = "";
+      if (!item.photo && item.code?.trim().toLowerCase() === "cop-01") item.photo = "copo-agua.png";
     });
+    if (!Array.isArray(S.rows)) S.rows = [];
+    S.rows.forEach(r => {
+      r.id ||= uid();
+      r.stock ??= "";
+      r.s ??= "";
+      r.r ??= "";
+      r.l ??= "";
+      r.k ??= false;
+      r.yes ??= false;
+      r.no ??= false;
+      if (!r.photo) {
+        const match = S.base.find(item =>
+          (r.code && item.code?.trim().toLowerCase() === r.code.trim().toLowerCase()) ||
+          (r.desc && item.desc?.trim().toLowerCase() === r.desc.trim().toLowerCase())
+        );
+        r.photo = match?.photo || "";
+      }
+    });
+    if (!["1", "24", "168", "720", "0"].includes(String(S.retention))) S.retention = "168";
+    if (S.expiresAt && Date.now() > Number(S.expiresAt)) {
+      S.rows = [];
+      ["nome", "evento", "data", "resp", "obs", "as1", "as2"].forEach(k => S[k] = "");
+      S.expiresAt = null;
+    }
+    if (!S.expiresAt && Number(S.retention) > 0) {
+      S.expiresAt = Date.now() + Number(S.retention) * 60 * 60 * 1000;
+    }
+    if (S.orient !== 'landscape' && S.orient !== 'portrait') S.orient = 'portrait';
+    ["nome", "evento", "data", "resp", "obs", "as1", "as2"].forEach(k => { if (S[k] == null) S[k] = ""; });
     let editing = false;
+    let library = {};
+    try { library = JSON.parse(localStorage.getItem(LIBRARY_KEY) || "{}") || {} } catch (e) { library = {} }
+    if (!Array.isArray(library.items)) library.items = [];
+    library.items = library.items.filter(item => !item.expiresAt || Date.now() <= Number(item.expiresAt));
+
+    if (!library.items.length) {
+      const legacyId = uid();
+      library.items.push({ id: legacyId, name: S.nome || "Checklist principal", expiresAt: S.expiresAt || null, state: JSON.parse(JSON.stringify(S)) });
+      library.activeId = legacyId;
+    } else if (!library.items.some(item => item.id === library.activeId)) {
+      library.activeId = library.items[0].id;
+    }
+    let activeChecklistId = library.activeId;
+    const activeRecord = () => library.items.find(item => item.id === activeChecklistId);
+    const snapshot = () => JSON.parse(JSON.stringify(S));
+
+    if (activeRecord()) {
+      S = JSON.parse(JSON.stringify(activeRecord().state || S));
+      S.base ??= [];
+    }
     function applyOrient() {
       const o = S.orient === 'portrait' ? 'portrait' : 'landscape';
       document.querySelector('.page').dataset.o = o;
@@ -948,7 +1177,19 @@
       renderPrintSheets();
     }
     document.addEventListener('click', e => { const b = e.target.closest('.seg button'); if (!b) return; pushUndo(); S.orient = b.dataset.o; save(); applyOrient() });
-    const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)) } catch (e) { } };
+    const save = () => {
+      try {
+        const record = activeRecord();
+        if (record) {
+          record.name = S.nome?.trim() || "Checklist sem nome";
+          record.expiresAt = S.expiresAt || null;
+          record.state = snapshot();
+        }
+        library.activeId = activeChecklistId;
+        localStorage.setItem(KEY, JSON.stringify(S));
+        localStorage.setItem(LIBRARY_KEY, JSON.stringify(library));
+      } catch (e) { }
+    };
     const num = v => v === "" || v == null ? null : Number(v);
     const stockStatus = r => {
       const available = num(r.stock);
@@ -1032,10 +1273,34 @@
       $("body").innerHTML = S.rows.map((r, i) => {
         const lists = { code: `itemCodes-${r.id}`, cat: "itemCategories", desc: `itemDescriptions-${r.id}` };
         const t = f => `<td class="e"><input type="text" value="${esc(r[f])}" data-id="${r.id}" data-f="${f}" aria-label="${f}" list="${lists[f]}"></td>`;
+        const photoMatch = S.base.find(item =>
+          (r.code && item.code?.trim().toLowerCase() === r.code.trim().toLowerCase()) ||
+          (r.desc && item.desc?.trim().toLowerCase() === r.desc.trim().toLowerCase())
+        );
+        const photo = r.photo || photoMatch?.photo || "";
+        const descriptionPhoto = photo
+          ? `<div class="item-photo-preview"><img src="${esc(photo)}" alt="${esc(r.desc || "Imagem do item")}"></div>`
+          : "";
+        const descriptionCell = `<td class="e"><div class="item-description-wrap">
+          <input type="text" value="${esc(r.desc)}" data-id="${esc(r.id)}" data-f="desc" aria-label="desc" list="${lists.desc}">
+          ${descriptionPhoto}
+        </div></td>`;
+        const categories = [];
+        S.base.forEach(item => {
+          const category = item.cat?.trim();
+          if (category && !categories.some(value => value.toLowerCase() === category.toLowerCase())) categories.push(category);
+        });
+        const categoryOptions = categories.map(category =>
+          `<button type="button" data-category="${esc(category)}" data-id="${esc(r.id)}">${esc(category)}</button>`
+        ).join("");
+        const categoryCell = `<td class="e"><div class="category-picker">
+          <input class="category-input" type="text" value="${esc(r.cat)}" data-id="${esc(r.id)}" data-f="cat" aria-label="cat" autocomplete="off">
+          <div class="category-options" hidden>${categoryOptions}</div>
+        </div></td>`;
         const s = num(r.s), x = num(r.r);
         const calculatedLoss = s != null && x != null ? Math.max(0, s - x) : "";
         const lossValue = r.l !== "" && r.l != null ? r.l : calculatedLoss;
-        return `<tr data-id="${r.id}">${t("code")}${t("cat")}${t("desc")}
+        return `<tr data-id="${r.id}">${t("code")}${categoryCell}${descriptionCell}
 <td class="availability-cell"><span class="stock-status" data-stock-status></span></td>
 <td class="n"><input type="number" min="0" inputmode="numeric" value="${esc(r.s)}" data-id="${r.id}" data-f="s" aria-label="Qtd. saída"></td>
 <td class="n"><input type="number" min="0" inputmode="numeric" value="${esc(r.r)}" data-id="${r.id}" data-f="r" aria-label="Qtd. retorno"></td>
@@ -1070,11 +1335,54 @@
     function renderBase() {
       $("baseBody").innerHTML = S.base.map((b, i) => `<tr>${["code", "cat", "desc"].map(f => `<td class="e"><input type="text" value="${esc(b[f])}" data-bi="${i}" data-f="${f}" aria-label="${f}"></td>`).join("")}
 <td class="n"><input type="number" min="0" inputmode="numeric" value="${esc(b.stock)}" data-bi="${i}" data-f="stock" aria-label="Estoque"></td>
+<td><div class="base-photo">${b.photo ? `<img src="${esc(b.photo)}" alt="Foto do item">` : `<span>Sem foto</span>`}<button type="button" class="sm" data-act="photo" data-bi="${i}">Escolher</button></div></td>
 <td style="text-align:center;white-space:nowrap"><button type="button" class="sm" data-act="addrow" data-bi="${i}">Adicionar ao checklist</button> <button type="button" class="sm danger" data-act="delbase" data-bi="${i}" title="Remover da base">×</button></td></tr>`).join("");
     }
     function loadMeta() {
       document.querySelectorAll("[data-k]").forEach(i => i.value = S[i.dataset.k] || "");
       syncPrintMeta();
+    }
+    function renderChecklistMenu() {
+      const list = $("checklistList");
+      if (!list) return;
+      list.innerHTML = library.items.map(item => {
+        const count = item.state?.rows?.length || 0;
+        const active = item.id === activeChecklistId;
+        return `<button type="button" class="checklist-entry ${active ? "active" : ""}" data-checklist-id="${esc(item.id)}">
+          <span>${esc(item.name || "Checklist sem nome")}</span>
+          <small>${count} item${count === 1 ? "" : "s"}</small>
+        </button>`;
+      }).join("");
+    }
+
+    function openChecklist(id) {
+      if (!library.items.some(item => item.id === id)) return;
+      save();
+      activeChecklistId = id;
+      S = JSON.parse(JSON.stringify(activeRecord().state || {}));
+      S.base ??= [];
+      if (!Array.isArray(S.rows)) S.rows = [];
+      if (!S.orient) S.orient = "portrait";
+      ["nome", "evento", "data", "resp", "obs", "as1", "as2"].forEach(k => { if (S[k] == null) S[k] = ""; });
+      editing = false;
+      save();
+      loadMeta();
+      renderRows();
+      renderBase();
+      renderChecklistMenu();
+      applyOrient();
+      closeChecklistMenu();
+    }
+
+    function blankChecklistState() {
+      return {
+        base: JSON.parse(JSON.stringify(S.base || [])),
+        rows: [],
+        orient: S.orient || "portrait",
+        retention: S.retention || "168",
+        expiresAt: null,
+        nome: "", evento: "", data: "", resp: "", obs: "", as1: "", as2: ""
+      };
     }
     function syncPrintMeta() {
       ["evento", "data", "resp"].forEach(k => {
@@ -1113,7 +1421,7 @@
 
         return `<section class="print-sheet ${S.orient}">
           <h1>Checklist de Buffet</h1>
-          <p class="sub">Controle de materiais — Saída, retorno e conferência — Folha ${pageIndex + 1}/${chunks.length}</p>
+          <p class="sub">${esc(S.nome || "Checklist")} — Controle de materiais — Folha ${pageIndex + 1}/${chunks.length}</p>
           <div class="meta">
             <label>Evento: ${esc(S.evento || "")}</label>
             <label>Data: ${esc(S.data || "")}</label>
@@ -1147,6 +1455,10 @@
       const t = e.target;
       pushUndo();
       if (t.dataset.k) { S[t.dataset.k] = t.value }
+      if (t.id === "retention") {
+        const hours = Number(t.value);
+        S.expiresAt = hours > 0 ? Date.now() + hours * 60 * 60 * 1000 : null;
+      }
       else if (t.dataset.id) {
         const r = row(t.dataset.id); if (!r) return;
         if (t.dataset.f === "yes") { r.yes = t.checked; if (r.yes) r.no = false }
@@ -1157,7 +1469,44 @@
       else return;
       if (t.dataset.id && ["code", "cat", "desc"].includes(t.dataset.f)) refreshItemSuggestions();
       if (t.dataset.id && (t.dataset.f === "yes" || t.dataset.f === "no")) renderRows();
-      save(); syncPrintMeta(); calc();
+      save();
+      if (t.dataset.k === "nome") renderChecklistMenu();
+      syncPrintMeta(); calc();
+    });
+    function closeCategoryOptions(except) {
+      document.querySelectorAll(".category-options").forEach(menu => {
+        if (menu !== except) menu.hidden = true;
+      });
+    }
+    document.addEventListener("mousemove", e => {
+      const wrap = e.target.closest(".item-description-wrap");
+      if (!wrap) return;
+      const preview = wrap.querySelector(".item-photo-preview");
+      if (!preview) return;
+      const width = 220;
+      const height = 220;
+      preview.style.left = Math.min(e.clientX + 16, window.innerWidth - width - 12) + "px";
+      preview.style.top = Math.min(e.clientY + 16, window.innerHeight - height - 12) + "px";
+    });
+    document.addEventListener("focusin", e => {
+      if (!e.target.classList?.contains("category-input")) return;
+      closeCategoryOptions();
+      const menu = e.target.parentElement.querySelector(".category-options");
+      if (menu) menu.hidden = false;
+    });
+    document.addEventListener("click", e => {
+      const categoryButton = e.target.closest("[data-category]");
+      if (categoryButton) {
+        pushUndo();
+        const r = row(categoryButton.dataset.id);
+        if (r) {
+          r.cat = categoryButton.dataset.category;
+          save();
+          renderRows();
+        }
+        return;
+      }
+      if (!e.target.classList?.contains("category-input")) closeCategoryOptions();
     });
     document.addEventListener("change", e => {
       const t = e.target;
@@ -1166,6 +1515,14 @@
       if (!r) return;
       const field = t.dataset.f;
       if (!["code", "cat", "desc"].includes(field)) return;
+
+      if (field === "cat") {
+        r.cat = t.value;
+        save();
+        refreshItemSuggestions();
+        renderRows();
+        return;
+      }
 
       const value = t.value.trim().toLowerCase();
       const match = S.base.find(item =>
@@ -1178,6 +1535,7 @@
       r.cat = match.cat;
       r.desc = match.desc;
       r.stock = match.stock ?? "";
+      r.photo = match.photo ?? "";
       save();
       renderRows();
     });
@@ -1185,32 +1543,129 @@
       const b = e.target.closest("button[data-act]"); if (!b) return;
       const a = b.dataset.act, id = b.dataset.id;
       pushUndo();
+      if (a === "photo") {
+        const input = document.createElement("input");
+        input.type = "file";
+        input.accept = "image/*";
+        input.onchange = () => {
+          const file = input.files?.[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = () => {
+            const item = S.base[+b.dataset.bi];
+            if (!item) return;
+            item.photo = reader.result;
+            save();
+            renderBase();
+            renderRows();
+          };
+          reader.readAsDataURL(file);
+        };
+        input.click();
+        return;
+      }
       if (a === "del") { S.rows = S.rows.filter(r => r.id !== id) }
       else if (a === "up" || a === "down") { const i = S.rows.findIndex(r => r.id === id), j = a === "up" ? i - 1 : i + 1; if (j < 0 || j >= S.rows.length) return;[S.rows[i], S.rows[j]] = [S.rows[j], S.rows[i]] }
       else if (a === "tobase") {
         const r = row(id); const k = S.base.findIndex(x => x.code.trim().toLowerCase() === r.code.trim().toLowerCase() && r.code.trim());
-        const item = { code: r.code, cat: r.cat, desc: r.desc, stock: r.stock ?? "" }; if (k >= 0) S.base[k] = item; else S.base.push(item); renderBase(); b.textContent = "Salvo"; setTimeout(() => { b.textContent = "Base" }, 1200); save(); return
+        const item = { code: r.code, cat: r.cat, desc: r.desc, stock: r.stock ?? "", photo: r.photo ?? "" }; if (k >= 0) S.base[k] = item; else S.base.push(item); renderBase(); b.textContent = "Salvo"; setTimeout(() => { b.textContent = "Base" }, 1200); save(); return
       }
-      else if (a === "addrow") { const x = S.base[+b.dataset.bi]; S.rows.push({ id: uid(), code: x.code, cat: x.cat, desc: x.desc, stock: x.stock ?? "" }); b.textContent = "Adicionado"; setTimeout(() => { b.textContent = "Adicionar ao checklist" }, 1200) }
+      else if (a === "addrow") { const x = S.base[+b.dataset.bi]; S.rows.push({ id: uid(), code: x.code, cat: x.cat, desc: x.desc, stock: x.stock ?? "", photo: x.photo ?? "" }); b.textContent = "Adicionado"; setTimeout(() => { b.textContent = "Adicionar ao checklist" }, 1200) }
       else if (a === "delbase") { S.base.splice(+b.dataset.bi, 1); renderBase(); save(); return }
       save(); renderRows();
     });
     $("editBtn").onclick = () => { editing = !editing; $("editBtn").setAttribute("aria-pressed", editing); $("editBtn").textContent = editing ? "Concluir edição" : "Editar itens"; $("editTools").hidden = !editing; renderRows() };
     $("printBtn").onclick = () => window.print();
+    $("saveBtn").onclick = () => {
+      pushUndo();
+      const hours = Number(S.retention);
+      S.expiresAt = hours > 0 ? Date.now() + hours * 60 * 60 * 1000 : null;
+      save();
+      const button = $("saveBtn");
+      button.textContent = "Checklist salva";
+      setTimeout(() => { button.textContent = "Salvar checklist" }, 1800);
+    };
+    const closeChecklistMenu = () => {
+      $("checklistDrawer").classList.remove("open");
+      $("drawerOverlay").hidden = true;
+      $("menuToggle").setAttribute("aria-expanded", "false");
+    };
+    $("menuToggle").onclick = () => {
+      const open = !$("checklistDrawer").classList.contains("open");
+      $("checklistDrawer").classList.toggle("open", open);
+      $("drawerOverlay").hidden = !open;
+      $("menuToggle").setAttribute("aria-expanded", String(open));
+    };
+    $("closeChecklistMenu").onclick = closeChecklistMenu;
+    $("drawerOverlay").onclick = closeChecklistMenu;
+    $("checklistList").onclick = e => {
+      const button = e.target.closest("[data-checklist-id]");
+      if (button) openChecklist(button.dataset.checklistId);
+    };
+    $("newChecklist").onclick = () => {
+      save();
+      const id = uid();
+      S = blankChecklistState();
+      activeChecklistId = id;
+      library.items.push({ id, name: "Nova checklist", expiresAt: null, state: snapshot() });
+      S.nome = "Nova checklist";
+      save();
+      loadMeta();
+      renderRows();
+      renderBase();
+      renderChecklistMenu();
+      applyOrient();
+    };
+    $("duplicateChecklist").onclick = () => {
+      save();
+      const copy = JSON.parse(JSON.stringify(S));
+      copy.nome = (copy.nome || "Checklist") + " - cópia";
+      const id = uid();
+      activeChecklistId = id;
+      S = copy;
+      library.items.push({ id, name: copy.nome, expiresAt: copy.expiresAt || null, state: snapshot() });
+      save();
+      loadMeta();
+      renderRows();
+      renderChecklistMenu();
+    };
+    $("deleteChecklist").onclick = () => {
+      if (library.items.length <= 1) {
+        S.rows = [];
+        ["nome", "evento", "data", "resp", "obs", "as1", "as2"].forEach(k => S[k] = "");
+        save();
+        loadMeta();
+        renderRows();
+        renderChecklistMenu();
+        return;
+      }
+      const record = activeRecord();
+      if (!record || !confirm(`Excluir "${record.name}"?`)) return;
+      save();
+      library.items = library.items.filter(item => item.id !== activeChecklistId);
+      activeChecklistId = library.items[0].id;
+      S = JSON.parse(JSON.stringify(activeRecord().state || {}));
+      save();
+      loadMeta();
+      renderRows();
+      renderBase();
+      renderChecklistMenu();
+      applyOrient();
+    };
     $("addBlank").onclick = () => { S.rows.push({ id: uid(), code: "", cat: "", desc: "" }); save(); renderRows() };
     $("resetBase").onclick = () => { const have = new Set(S.rows.map(r => r.code.trim().toLowerCase())); S.base.forEach(b => { if (!have.has(b.code.trim().toLowerCase())) S.rows.push({ id: uid(), ...b }) }); save(); renderRows() };
-    $("addBase").onclick = () => { S.base.push({ code: "", cat: "", desc: "" }); save(); renderBase() };
+    $("addBase").onclick = () => { S.base.push({ code: "", cat: "", desc: "", stock: "", photo: "" }); save(); renderBase() };
     const clr = $("clear"); let armed = false, timer;
     clr.onclick = () => {
       if (!armed) { armed = true; clr.textContent = "Confirmar: apagar preenchimento"; timer = setTimeout(() => { armed = false; clr.textContent = "Limpar preenchimento" }, 4000); return }
       clearTimeout(timer); armed = false; clr.textContent = "Limpar preenchimento";
       pushUndo();
-      ["evento", "data", "resp", "obs", "as1", "as2"].forEach(k => S[k] = "");
-      S.rows.forEach(r => { r.s = ""; r.r = ""; r.l = ""; r.k = false; r.yes = false; r.no = false });
+      ["nome", "evento", "data", "resp", "obs", "as1", "as2"].forEach(k => S[k] = "");
+      S.rows = [];
       save(); loadMeta(); renderRows();
     };
     save();
-    loadMeta(); renderRows(); renderBase(); applyOrient();
+    loadMeta(); renderRows(); renderBase(); renderChecklistMenu(); applyOrient();
   </script>
 
 </body>
