@@ -1007,6 +1007,9 @@
       <button type="button" class="pri" id="printBtn">Imprimir</button>
       <button type="button" class="pri" id="saveBtn">Salvar checklist</button>
       <button type="button" id="historyBtn">Histórico</button>
+      <button type="button" id="exportBackupBtn">Exportar backup</button>
+      <button type="button" id="importBackupBtn">Importar backup</button>
+      <input type="file" id="backupFile" accept=".json,application/json" hidden>
       <span id="editTools" hidden style="display:contents">
         <button type="button" id="addBlank">+ Item em branco</button>
         <button type="button" id="resetBase">Usar todos da base</button>
@@ -1626,6 +1629,65 @@
       const button = $("saveBtn");
       button.textContent = created ? "Versão registrada" : "Sem alterações";
       setTimeout(() => { button.textContent = "Salvar checklist" }, 1800);
+    };
+    $("exportBackupBtn").onclick = () => {
+      save();
+      const payload = {
+        app: "Checklist de Buffet",
+        formatVersion: 1,
+        exportedAt: new Date().toISOString(),
+        activeId: activeChecklistId,
+        library: JSON.parse(JSON.stringify(library))
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "backup-checklist-buffet-" + new Date().toISOString().slice(0, 10) + ".json";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    };
+    $("importBackupBtn").onclick = () => $("backupFile").click();
+    $("backupFile").onchange = async e => {
+      const file = e.target.files?.[0];
+      e.target.value = "";
+      if (!file) return;
+      if (file.size > 50 * 1024 * 1024) {
+        alert("O arquivo é muito grande. O limite para importação é 50 MB.");
+        return;
+      }
+      try {
+        const payload = JSON.parse(await file.text());
+        const items = payload?.library?.items;
+        if (payload?.app !== "Checklist de Buffet" || payload?.formatVersion !== 1 ||
+            !Array.isArray(items) || !items.length ||
+            !items.every(item => item && typeof item.id === "string" &&
+              item.state && Array.isArray(item.state.rows) && Array.isArray(item.state.base))) {
+          throw new Error("Formato de backup inválido.");
+        }
+        if (!confirm("Importar este backup? Os dados atuais deste navegador serão substituídos pelas checklists do arquivo.")) return;
+        const restored = JSON.parse(JSON.stringify(payload.library));
+        restored.items = restored.items.filter(item => !item.expiresAt || Date.now() <= Number(item.expiresAt));
+        if (!restored.items.length) throw new Error("O backup não contém checklists válidas dentro do prazo de armazenamento.");
+        library = restored;
+        activeChecklistId = restored.items.some(item => item.id === payload.activeId)
+          ? payload.activeId : restored.items[0].id;
+        library.activeId = activeChecklistId;
+        S = JSON.parse(JSON.stringify(activeRecord().state));
+        S.base ??= [];
+        S.rows ??= [];
+        save();
+        loadMeta();
+        renderRows();
+        renderBase();
+        renderChecklistMenu();
+        applyOrient();
+        alert("Backup restaurado com sucesso. As checklists, fotos e históricos foram recuperados.");
+      } catch (error) {
+        alert("Não foi possível importar o backup: " + (error.message || "arquivo inválido."));
+      }
     };
     $("historyBtn").onclick = () => { renderHistory(); $("historyDialog").showModal(); };
     $("closeHistory").onclick = () => $("historyDialog").close();
