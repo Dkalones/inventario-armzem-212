@@ -1006,6 +1006,7 @@
       <button type="button" id="editBtn" aria-pressed="false">Editar itens</button>
       <button type="button" class="pri" id="printBtn">Imprimir</button>
       <button type="button" class="pri" id="saveBtn">Salvar checklist</button>
+      <button type="button" id="historyBtn">Histórico</button>
       <span id="editTools" hidden style="display:contents">
         <button type="button" id="addBlank">+ Item em branco</button>
         <button type="button" id="resetBase">Usar todos da base</button>
@@ -1094,6 +1095,10 @@
   </div>
 
   <div id="printSheets" class="print-sheets"></div>
+  <dialog id="historyDialog" class="noprint" style="width:min(680px,calc(100vw - 28px));max-height:80vh;border:1px solid var(--line);border-radius:12px;background:var(--bg);color:var(--text);padding:20px">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><h2 style="margin:0;color:var(--fg)">Histórico da checklist</h2><button type="button" id="closeHistory">Fechar</button></div>
+    <p class="hint">Cada salvamento cria um registro. Você pode consultar ou restaurar uma versão anterior.</p><div id="historyList" style="display:grid;gap:8px;max-height:55vh;overflow:auto"></div>
+  </dialog>
 
   <script>
     const SEED = [
@@ -1160,6 +1165,38 @@
     let activeChecklistId = library.activeId;
     const activeRecord = () => library.items.find(item => item.id === activeChecklistId);
     const snapshot = () => JSON.parse(JSON.stringify(S));
+    const HISTORY_LIMIT = 50;
+    const recordHistory = () => {
+      const record = activeRecord();
+      if (!record) return false;
+      const state = snapshot();
+      record.history ??= [];
+      const last = record.history[record.history.length - 1];
+      if (last && JSON.stringify(last.state) === JSON.stringify(state)) return false;
+      record.history.push({ id: uid(), at: Date.now(), state });
+      if (record.history.length > HISTORY_LIMIT) record.history.splice(0, record.history.length - HISTORY_LIMIT);
+      return true;
+    };
+    function renderHistory() {
+      const record = activeRecord();
+      const history = [...(record?.history || [])].reverse();
+      const list = $("historyList");
+      list.innerHTML = "";
+      if (!history.length) { list.textContent = "Nenhum histórico salvo ainda. Clique em Salvar checklist para registrar a primeira versão."; return; }
+      history.forEach((entry, index) => {
+        const state = entry.state || {};
+        const card = document.createElement("div");
+        card.style.cssText = "border:1px solid var(--line);border-radius:8px;padding:12px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap";
+        const info = document.createElement("div");
+        const heading = document.createElement("strong"); heading.textContent = state.nome || record.name || "Checklist";
+        const detail = document.createElement("div"); detail.style.cssText = "font-size:12px;opacity:.75";
+        detail.textContent = new Date(entry.at).toLocaleString("pt-BR") + " · " + (state.rows?.length || 0) + " item(ns)" + (index === 0 ? " · versão mais recente" : "");
+        info.append(heading, detail);
+        const button = document.createElement("button"); button.type = "button"; button.className = "sm"; button.textContent = "Restaurar"; button.dataset.historyId = entry.id;
+        card.append(info, button); list.append(card);
+      });
+    }
+
 
     if (activeRecord()) {
       S = JSON.parse(JSON.stringify(activeRecord().state || S));
@@ -1306,7 +1343,7 @@
 <td class="n"><input type="number" min="0" inputmode="numeric" value="${esc(r.r)}" data-id="${r.id}" data-f="r" aria-label="Qtd. retorno"></td>
 <td class="n"><input type="number" min="0" inputmode="numeric" value="${esc(lossValue)}" data-id="${r.id}" data-f="l" aria-label="Perdas"></td>
 <td class="c"><span class="conference-options"><label>Sim <input type="checkbox" ${r.yes ? "checked" : ""} data-id="${r.id}" data-f="yes" aria-label="Conferido sim"></label><label>Não <input type="checkbox" ${r.no ? "checked" : ""} data-id="${r.id}" data-f="no" aria-label="Conferido não"></label><button type="button" class="sm danger" data-act="del" data-id="${r.id}" title="Apagar item do checklist">×</button></span></td>
-<td class="act"><button type="button" class="sm" data-act="up" data-id="${r.id}" title="Subir" ${i === 0 ? "disabled" : ""}>↑</button> <button type="button" class="sm" data-act="down" data-id="${r.id}" title="Descer" ${i === S.rows.length - 1 ? "disabled" : ""}>↓</button> <button type="button" class="sm" data-act="tobase" data-id="${r.id}" title="Salvar na base">Base</button> <button type="button" class="sm danger" data-act="del" data-id="${r.id}" title="Remover do checklist">×</button></td></tr>`;
+<td class="act"><button type="button" class="sm" data-act="rowphoto" data-id="${r.id}" title="Adicionar ou trocar foto">Foto</button> <button type="button" class="sm" data-act="up" data-id="${r.id}" title="Subir" ${i === 0 ? "disabled" : ""}>↑</button> <button type="button" class="sm" data-act="down" data-id="${r.id}" title="Descer" ${i === S.rows.length - 1 ? "disabled" : ""}>↓</button> <button type="button" class="sm" data-act="tobase" data-id="${r.id}" title="Salvar na base">Base</button> <button type="button" class="sm danger" data-act="del" data-id="${r.id}" title="Remover do checklist">×</button></td></tr>`;
       }).join("") || `<tr><td colspan="9" style="height:60px;text-align:center">Nenhum item. Use "Editar itens" para adicionar da base ou criar um item em branco.</td></tr>`;
       refreshItemSuggestions();
       calc();
@@ -1543,26 +1580,28 @@
       const b = e.target.closest("button[data-act]"); if (!b) return;
       const a = b.dataset.act, id = b.dataset.id;
       pushUndo();
-      if (a === "photo") {
-        const input = document.createElement("input");
-        input.type = "file";
-        input.accept = "image/*";
+      if (a === "photo" || a === "rowphoto") {
+        const input = document.createElement("input"); input.type = "file"; input.accept = "image/*";
         input.onchange = () => {
-          const file = input.files?.[0];
-          if (!file) return;
+          const file = input.files?.[0]; if (!file) return;
+          if (!file.type.startsWith("image/")) { alert("Selecione um arquivo de imagem."); return; }
           const reader = new FileReader();
           reader.onload = () => {
-            const item = S.base[+b.dataset.bi];
-            if (!item) return;
-            item.photo = reader.result;
-            save();
-            renderBase();
-            renderRows();
+            const img = new Image();
+            img.onload = () => {
+              const scale = Math.min(1, 1400 / Math.max(img.width, img.height));
+              const canvas = document.createElement("canvas"); canvas.width = Math.max(1, Math.round(img.width * scale)); canvas.height = Math.max(1, Math.round(img.height * scale));
+              canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+              const compressed = canvas.toDataURL("image/jpeg", 0.78);
+              if (a === "rowphoto") { const item = row(id); if (!item) return; item.photo = compressed; }
+              else { const item = S.base[+b.dataset.bi]; if (!item) return; item.photo = compressed; }
+              save(); renderBase(); renderRows();
+            };
+            img.onerror = () => alert("Não foi possível carregar esta imagem."); img.src = reader.result;
           };
           reader.readAsDataURL(file);
         };
-        input.click();
-        return;
+        input.click(); return;
       }
       if (a === "del") { S.rows = S.rows.filter(r => r.id !== id) }
       else if (a === "up" || a === "down") { const i = S.rows.findIndex(r => r.id === id), j = a === "up" ? i - 1 : i + 1; if (j < 0 || j >= S.rows.length) return;[S.rows[i], S.rows[j]] = [S.rows[j], S.rows[i]] }
@@ -1581,10 +1620,21 @@
       const hours = Number(S.retention);
       S.expiresAt = hours > 0 ? Date.now() + hours * 60 * 60 * 1000 : null;
       save();
+      const created = recordHistory();
+      save();
+      renderHistory();
       const button = $("saveBtn");
-      button.textContent = "Checklist salva";
+      button.textContent = created ? "Versão registrada" : "Sem alterações";
       setTimeout(() => { button.textContent = "Salvar checklist" }, 1800);
     };
+    $("historyBtn").onclick = () => { renderHistory(); $("historyDialog").showModal(); };
+    $("closeHistory").onclick = () => $("historyDialog").close();
+    $("historyList").addEventListener("click", e => {
+      const button = e.target.closest("[data-history-id]"); if (!button) return;
+      const entry = activeRecord()?.history?.find(item => item.id === button.dataset.historyId);
+      if (!entry || !confirm("Restaurar esta versão?")) return;
+      pushUndo(); S = JSON.parse(JSON.stringify(entry.state)); save(); loadMeta(); renderRows(); renderBase(); applyOrient(); $("historyDialog").close();
+    });
     const closeChecklistMenu = () => {
       $("checklistDrawer").classList.remove("open");
       $("drawerOverlay").hidden = true;
@@ -1607,7 +1657,7 @@
       const id = uid();
       S = blankChecklistState();
       activeChecklistId = id;
-      library.items.push({ id, name: "Nova checklist", expiresAt: null, state: snapshot() });
+      library.items.push({ id, name: "Nova checklist", expiresAt: null, state: snapshot(), history: [] });
       S.nome = "Nova checklist";
       save();
       loadMeta();
@@ -1623,7 +1673,7 @@
       const id = uid();
       activeChecklistId = id;
       S = copy;
-      library.items.push({ id, name: copy.nome, expiresAt: copy.expiresAt || null, state: snapshot() });
+      library.items.push({ id, name: copy.nome, expiresAt: copy.expiresAt || null, state: snapshot(), history: [] });
       save();
       loadMeta();
       renderRows();
